@@ -1,26 +1,207 @@
 @import "tailwindcss";
 
+@theme {
+  --font-sans: var(--font-geist-sans), ui-sans-serif, system-ui, sans-serif;
+  --font-mono: var(--font-geist-mono), ui-monospace, monospace;
+  --font-display: var(--font-playfair), Georgia, "Times New Roman", serif;
+
+  --color-ink: #041316;
+  --color-foam: #f3eee3;
+  --color-pearl: #ebe4d4;
+
+  /* Deep sea teal — the house colour. */
+  --color-brand-50: #f0fafa;
+  --color-brand-100: #d9f2f2;
+  --color-brand-200: #b4e5e6;
+  --color-brand-300: #82d1d4;
+  --color-brand-400: #4ab5ba;
+  --color-brand-500: #2f999f;
+  --color-brand-600: #267b83;
+  --color-brand-700: #22626a;
+  --color-brand-800: #204f56;
+  --color-brand-900: #1d4249;
+  --color-brand-950: #0c272c;
+
+  /* Warm masala/sand accent. */
+  --color-spice-50: #fdf8ed;
+  --color-spice-100: #f8ecce;
+  --color-spice-200: #f0d799;
+  --color-spice-300: #e7bc5f;
+  --color-spice-400: #e0a336;
+  --color-spice-500: #d88a20;
+  --color-spice-600: #bf6a19;
+  --color-spice-700: #9f4e18;
+  --color-spice-800: #813e1a;
+  --color-spice-900: #6b3419;
+  --color-spice-950: #3d1a09;
+}
+
 :root {
-  --background: #ffffff;
-  --foreground: #171717;
+  color-scheme: light;
 }
 
-@theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
-}
-
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
+html {
+  -webkit-text-size-adjust: 100%;
 }
 
 body {
-  background: var(--background);
-  color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+  @apply bg-white text-slate-900 antialiased;
+}
+
+/* Tap targets on the POS are used by staff on tablets in a hurry. */
+button,
+[role="button"] {
+  touch-action: manipulation;
+}
+
+/* Hides the spinner on quantity inputs so the +/- buttons are the only control. */
+input[type="number"]::-webkit-outer-spin-button,
+input[type="number"]::-webkit-inner-spin-button {
+  appearance: none;
+  margin: 0;
+}
+
+@utility no-scrollbar {
+  scrollbar-width: none;
+  &::-webkit-scrollbar {
+    display: none;
+  }
+}
+
+/* The printable bill: drop all app chrome and fit a narrow receipt. */
+@media print {
+  .print-hidden {
+    display: none !important;
+  }
+
+  body {
+    background: #fff;
+  }
+
+  .print-sheet {
+    margin: 0;
+    padding: 0;
+    box-shadow: none;
+    border: 0;
+    width: 100%;
+    max-width: none;
+  }
+}
+
+@page {
+  margin: 8mm;
+}
+
+/* Public site only — the POS keeps the original tokens. */
+.public-site {
+  --font-sans: var(--font-outfit), ui-sans-serif, system-ui, sans-serif;
+  --font-display: var(--font-cormorant), Georgia, "Times New Roman", serif;
+  font-family: var(--font-sans);
+  background: var(--color-foam);
+  color: #1c2e32;
+}
+
+.public-site .grain {
+  pointer-events: none;
+  position: absolute;
+  inset: 0;
+  opacity: 0.18;
+  mix-blend-mode: overlay;
+  background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+}
+
+@keyframes ocean-wave {
+  from {
+    transform: translateX(0);
+  }
+  to {
+    transform: translateX(-50%);
+  }
+}
+
+@keyframes ocean-twinkle {
+  0%,
+  100% {
+    opacity: 0.25;
+  }
+  50% {
+    opacity: 1;
+  }
+}
+
+@keyframes ocean-swim {
+  0% {
+    transform: translateX(calc(-1 * var(--swim-x, 14%))) translateY(0)
+      rotate(var(--swim-tilt, -5deg));
+  }
+  50% {
+    transform: translateX(var(--swim-x, 14%)) translateY(var(--swim-y, -14px))
+      rotate(calc(-1 * var(--swim-tilt, -5deg)));
+  }
+  100% {
+    transform: translateX(calc(-1 * var(--swim-x, 14%))) translateY(0)
+      rotate(var(--swim-tilt, -5deg));
+  }
+}
+
+@keyframes ocean-caustic {
+  from {
+    transform: translate3d(0, 0, 0) scale(1);
+    opacity: 0.18;
+  }
+  50% {
+    transform: translate3d(-3%, 2%, 0) scale(1.08);
+    opacity: 0.32;
+  }
+  to {
+    transform: translate3d(0, 0, 0) scale(1);
+    opacity: 0.18;
+  }
+}
+
+@keyframes ocean-pulse {
+  0%,
+  100% {
+    opacity: 0.35;
+    transform: scale(1);
+  }
+  50% {
+    opacity: 0.7;
+    transform: scale(1.04);
+  }
+}
+
+.ocean-wave {
+  animation: ocean-wave 18s linear infinite;
+}
+
+.ocean-wave-slow {
+  animation: ocean-wave 28s linear infinite;
+}
+
+.ocean-star {
+  animation: ocean-twinkle 3.6s ease-in-out infinite;
+}
+
+.ocean-swim {
+  animation: ocean-swim 18s ease-in-out infinite;
+}
+
+.ocean-caustic {
+  animation: ocean-caustic 12s ease-in-out infinite;
+}
+
+.ocean-pulse {
+  animation: ocean-pulse 5.5s ease-in-out infinite;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .ocean-wave,
+  .ocean-wave-slow,
+  .ocean-star,
+  .ocean-swim,
+  .ocean-caustic,
+  .ocean-pulse {
+    animation: none;
+  }
 }
