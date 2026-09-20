@@ -5,7 +5,7 @@ import { ActionForm } from "@/modules/admin/components/action-form";
 import { PageHeader } from "@/modules/admin/components/admin-shell";
 import { Popover } from "@/modules/admin/components/popover";
 import { requireManager } from "@/modules/admin/auth/session";
-import { deleteTable, saveTable } from "@/modules/admin/menu/actions";
+import { deleteSection, deleteTable, saveSection, saveTable } from "@/modules/admin/menu/actions";
 import { createServerSupabase } from "@/shared/supabase/server";
 import type { DiningTable } from "@/shared/types/database";
 import { Field, Input } from "@/shared/ui/form";
@@ -38,19 +38,35 @@ export default async function FloorSetupPage() {
         title="Table setup"
         subtitle={`${tables.filter((table) => table.is_active).length} active tables · ${seats} seats · ${zones.length} areas`}
         actions={
-          <Popover
-            label={
-              <>
-                <Plus className="size-4" aria-hidden />
-                Add table
-              </>
-            }
-            variant="primary"
-            size="md"
-            width="w-72"
-          >
-            <TableForm zones={zones} />
-          </Popover>
+          <>
+            <Popover
+              label={
+                <>
+                  <Plus className="size-4" aria-hidden />
+                  Section
+                </>
+              }
+              variant="outline"
+              size="md"
+              width="w-72"
+            >
+              <SectionForm />
+            </Popover>
+
+            <Popover
+              label={
+                <>
+                  <Plus className="size-4" aria-hidden />
+                  Add table
+                </>
+              }
+              variant="primary"
+              size="md"
+              width="w-72"
+            >
+              <TableForm zones={zones} />
+            </Popover>
+          </>
         }
       />
 
@@ -62,65 +78,146 @@ export default async function FloorSetupPage() {
       ) : (
         <div className="space-y-4">
           {zones.map((zone) => (
-            <Card key={zone}>
-              <CardHeader
-                title={zone}
-                subtitle={`${tables.filter((table) => table.zone === zone).length} tables`}
-              />
-              <ul className="divide-y divide-slate-200">
-                {tables
-                  .filter((table) => table.zone === zone)
-                  .map((table) => (
-                    <li
-                      key={table.id}
-                      className="flex items-center gap-3 px-4 py-2.5 text-sm"
-                    >
-                      <span className="w-16 font-semibold text-slate-900">
-                        {table.label}
-                      </span>
-                      <span className="text-slate-500">{table.seats} seats</span>
-                      <span className="text-xs text-slate-400">
-                        sort {table.sort_order}
-                      </span>
-                      {table.is_active ? null : <Badge tone="warning">Switched off</Badge>}
-
-                      <span className="ml-auto flex gap-1.5">
-                        <Popover
-                          label={<Pencil className="size-3.5" aria-hidden />}
-                          variant="ghost"
-                          width="w-72"
-                        >
-                          <TableForm table={table} zones={zones} />
-                        </Popover>
-                        <Popover
-                          label={<Trash2 className="size-3.5" aria-hidden />}
-                          variant="ghost"
-                          width="w-64"
-                        >
-                          <ActionForm
-                            action={deleteTable}
-                            announceSuccess
-                            className="space-y-2"
-                          >
-                            <input type="hidden" name="id" value={table.id} />
-                            <p className="text-xs text-slate-600">
-                              Remove {table.label}? If it has past sales it will be
-                              switched off instead, so turnover reports keep working.
-                            </p>
-                            <SubmitButton size="sm" variant="danger" className="w-full">
-                              Remove table
-                            </SubmitButton>
-                          </ActionForm>
-                        </Popover>
-                      </span>
-                    </li>
-                  ))}
-              </ul>
-            </Card>
+            <ZoneBlock
+              key={zone}
+              zone={zone}
+              tables={tables.filter((table) => table.zone === zone)}
+              zones={zones}
+            />
           ))}
         </div>
       )}
     </>
+  );
+}
+
+function ZoneBlock({
+  zone,
+  tables,
+  zones,
+}: {
+  zone: string;
+  tables: DiningTable[];
+  zones: string[];
+}) {
+  return (
+    <Card>
+      <CardHeader
+        title={
+          <span className="flex items-center gap-2">
+            {zone}
+            <span className="text-xs font-normal text-slate-400">
+              {tables.length} {tables.length === 1 ? "table" : "tables"}
+            </span>
+          </span>
+        }
+        subtitle={`${tables.filter((t) => t.is_active).length} active`}
+        action={
+          <div className="flex gap-1.5">
+            <Popover
+              label={<Pencil className="size-3.5" aria-hidden />}
+              variant="ghost"
+              width="w-72"
+            >
+              <SectionForm zone={zone} />
+            </Popover>
+            <Popover
+              label={<Trash2 className="size-3.5" aria-hidden />}
+              variant="ghost"
+              width="w-64"
+            >
+              <ActionForm
+                action={deleteSection}
+                announceSuccess
+                className="space-y-2"
+              >
+                <input type="hidden" name="zone" value={zone} />
+                <p className="text-xs text-slate-600">
+                  Delete the &ldquo;{zone}&rdquo; section and all its tables?
+                  Tables with past sales will be switched off instead of
+                  deleted, so reports keep working.
+                </p>
+                <SubmitButton size="sm" variant="danger" className="w-full">
+                  Delete section
+                </SubmitButton>
+              </ActionForm>
+            </Popover>
+          </div>
+        }
+      />
+      <ul className="divide-y divide-slate-200">
+        {tables.map((table) => (
+          <li
+            key={table.id}
+            className="flex items-center gap-3 px-4 py-2.5 text-sm"
+          >
+            <span className="w-16 font-semibold text-slate-900">
+              {table.label}
+            </span>
+            <span className="text-slate-500">{table.seats} seats</span>
+            <span className="text-xs text-slate-400">
+              sort {table.sort_order}
+            </span>
+            {table.is_active ? null : <Badge tone="warning">Switched off</Badge>}
+
+            <span className="ml-auto flex gap-1.5">
+              <Popover
+                label={<Pencil className="size-3.5" aria-hidden />}
+                variant="ghost"
+                width="w-72"
+              >
+                <TableForm table={table} zones={zones} />
+              </Popover>
+              <Popover
+                label={<Trash2 className="size-3.5" aria-hidden />}
+                variant="ghost"
+                width="w-64"
+              >
+                <ActionForm
+                  action={deleteTable}
+                  announceSuccess
+                  className="space-y-2"
+                >
+                  <input type="hidden" name="id" value={table.id} />
+                  <p className="text-xs text-slate-600">
+                    Remove {table.label}? If it has past sales it will be
+                    switched off instead, so turnover reports keep working.
+                  </p>
+                  <SubmitButton size="sm" variant="danger" className="w-full">
+                    Remove table
+                  </SubmitButton>
+                </ActionForm>
+              </Popover>
+            </span>
+          </li>
+        ))}
+      </ul>
+    </Card>
+  );
+}
+
+function SectionForm({ zone }: { zone?: string }) {
+  const key = zone ?? "new";
+
+  return (
+    <ActionForm action={saveSection} announceSuccess className="space-y-3">
+      {zone ? <input type="hidden" name="oldZone" value={zone} /> : null}
+
+      <Field label="Section name" htmlFor={`sec-name-${key}`} required>
+        <Input
+          id={`sec-name-${key}`}
+          name="name"
+          defaultValue={zone ?? ""}
+          placeholder="Main Hall"
+          required
+          minLength={2}
+        />
+      </Field>
+
+      <SubmitButton size="md" className="w-full">
+        {zone ? "Rename section" : "Add section"}
+      </SubmitButton>
+    </ActionForm>
   );
 }
 

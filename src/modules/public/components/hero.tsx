@@ -33,7 +33,7 @@ export function Hero() {
                   href="/menu"
                   size="lg"
                   variant="spice"
-                  className="rounded-full px-7 shadow-[0_16px_40px_-12px_rgba(216,138,32,0.85)]"
+                  className="rounded-full px-7 shadow-[0_8px_24px_-8px_rgba(0,0,0,0.5)]"
                 >
                   See today&apos;s menu
                   <ArrowRight className="size-4" aria-hidden />
@@ -45,6 +45,36 @@ export function Hero() {
                 >
                   How to find us
                 </ButtonLink>
+              </div>
+
+              {/* Non-blocking Floating Quick Info Chips */}
+              <div className="mt-10 flex flex-wrap items-center gap-2.5 sm:gap-3 text-xs sm:text-sm">
+                <div className="flex items-center gap-2 rounded-full border border-white/15 bg-white/10 px-4 py-2 text-brand-100 backdrop-blur-md transition-all hover:bg-white/20">
+                  <Clock className="size-3.5 shrink-0 text-spice-300" aria-hidden />
+                  <span>
+                    <span className="text-spice-300 font-medium">Open: </span>
+                    <span className="font-semibold text-white">{restaurant.hours[0].time}</span>
+                  </span>
+                </div>
+
+                <div className="flex items-center gap-2 rounded-full border border-white/15 bg-white/10 px-4 py-2 text-brand-100 backdrop-blur-md transition-all hover:bg-white/20">
+                  <MapPin className="size-3.5 shrink-0 text-spice-300" aria-hidden />
+                  <span>
+                    <span className="text-spice-300 font-medium">Location: </span>
+                    <span className="font-semibold text-white">{restaurant.address.line1}, {restaurant.address.line2}</span>
+                  </span>
+                </div>
+
+                <a
+                  href={phoneHref}
+                  className="flex items-center gap-2 rounded-full border border-white/15 bg-white/10 px-4 py-2 text-brand-100 backdrop-blur-md transition-all hover:border-spice-400/50 hover:bg-white/20 hover:text-white"
+                >
+                  <Phone className="size-3.5 shrink-0 text-spice-300" aria-hidden />
+                  <span>
+                    <span className="text-spice-300 font-medium">Call Us: </span>
+                    <span className="font-semibold text-white">{restaurant.phone}</span>
+                  </span>
+                </a>
               </div>
             </div>
 
@@ -61,48 +91,10 @@ export function Hero() {
               </div>
             </div>
           </div>
-
-          <dl className="mt-10 grid items-stretch gap-5 rounded-2xl border border-white/10 bg-white/5 px-3 py-4 backdrop-blur-md sm:grid-cols-3 sm:gap-0 sm:divide-x sm:divide-white/10 sm:px-2 sm:py-5 lg:mt-4">
-            <Fact icon={<Clock className="size-4" aria-hidden />} label="Open today">
-              {restaurant.hours[0].time}
-            </Fact>
-            <Fact icon={<MapPin className="size-4" aria-hidden />} label="Where">
-              {restaurant.address.line1}, {restaurant.address.line2}
-            </Fact>
-            <Fact icon={<Phone className="size-4" aria-hidden />} label="Call us">
-              <a href={phoneHref} className="hover:text-white">
-                {restaurant.phone}
-              </a>
-            </Fact>
-          </dl>
         </div>
       </div>
 
       <WaveDivider fill="#f3eee3" />
     </section>
-  );
-}
-
-function Fact({
-  icon,
-  label,
-  children,
-}: {
-  icon?: React.ReactNode;
-  label: string;
-  children: React.ReactNode;
-}) {
-  return (
-    <div className="flex items-center justify-center gap-3 px-3 py-1 sm:px-6">
-      <div className="flex size-9 shrink-0 items-center justify-center rounded-full border border-white/10 bg-white/5 text-spice-300">
-        {icon}
-      </div>
-      <div className="min-w-0 text-left">
-        <dt className="text-[0.65rem] font-semibold tracking-[0.2em] text-spice-300 uppercase">
-          {label}
-        </dt>
-        <dd className="mt-0.5 text-sm whitespace-nowrap text-brand-50">{children}</dd>
-      </div>
-    </div>
   );
 }

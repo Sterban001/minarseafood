@@ -94,8 +94,8 @@ input[type="number"]::-webkit-inner-spin-button {
 
 /* Public site only — the POS keeps the original tokens. */
 .public-site {
-  --font-sans: var(--font-outfit), ui-sans-serif, system-ui, sans-serif;
-  --font-display: var(--font-cormorant), Georgia, "Times New Roman", serif;
+  --font-sans: var(--font-jakarta), ui-sans-serif, system-ui, sans-serif;
+  --font-display: var(--font-playfair), Georgia, "Times New Roman", serif;
   font-family: var(--font-sans);
   background: var(--color-foam);
   color: #1c2e32;
@@ -177,6 +177,81 @@ input[type="number"]::-webkit-inner-spin-button {
 
 .ocean-wave-slow {
   animation: ocean-wave 28s linear infinite;
+}
+
+@keyframes ocean-wave-reverse {
+  from {
+    transform: translateX(-50%);
+  }
+  to {
+    transform: translateX(0);
+  }
+}
+
+@keyframes bubble-float {
+  0% {
+    transform: translateY(0) scale(0.5);
+    opacity: 0;
+  }
+  25% {
+    opacity: 0.85;
+  }
+  75% {
+    opacity: 0.6;
+  }
+  100% {
+    transform: translateY(-180px) scale(1.3);
+    opacity: 0;
+  }
+}
+
+.ocean-wave-reverse {
+  animation: ocean-wave-reverse 22s linear infinite;
+}
+
+.ocean-bubble {
+  animation: bubble-float linear infinite;
+}
+
+@keyframes swim-local-right {
+  0%, 100% {
+    transform: translate3d(0, 0, 0) scaleX(-1) rotate(-2deg);
+  }
+  50% {
+    transform: translate3d(50px, -16px, 0) scaleX(-1) rotate(3deg);
+  }
+}
+
+@keyframes swim-local-left {
+  0%, 100% {
+    transform: translate3d(0, 0, 0) scaleX(1) rotate(-3deg);
+  }
+  50% {
+    transform: translate3d(-50px, -16px, 0) scaleX(1) rotate(2deg);
+  }
+}
+
+@keyframes tail-wiggle {
+  0%, 100% {
+    transform: rotate(-7deg);
+  }
+  50% {
+    transform: rotate(7deg);
+  }
+}
+
+.swim-local-right {
+  animation: swim-local-right 14s ease-in-out infinite;
+  will-change: transform;
+}
+
+.swim-local-left {
+  animation: swim-local-left 16s ease-in-out infinite;
+  will-change: transform;
+}
+
+.tail-wiggle {
+  animation: tail-wiggle 1.2s ease-in-out infinite;
 }
 
 .ocean-star {

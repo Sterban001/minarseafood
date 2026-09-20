@@ -14,8 +14,6 @@ import { SiteLogo } from "./site-logo";
 const links = [
   { href: "/", label: "Home" },
   { href: "/menu", label: "Menu" },
-  { href: "/gallery", label: "Gallery" },
-  { href: "/about", label: "Our story" },
   { href: "/contact", label: "Visit us" },
 ];
 

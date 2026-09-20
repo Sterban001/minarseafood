@@ -3,7 +3,7 @@
 **Start here.** Then `AGENTS.md` (Next.js 16 rules). `HANDOVER.md` is traps and
 internals only — do not duplicate this file there.
 
-Last updated: 20 Sep 2026.
+Last updated: 21 Sep 2026.
 
 Do **not** wipe sales, add gallery photos, or deploy unless asked. Do **not**
 re-seed or overwrite dishes. Public copy must not invent amenities. Public UI
@@ -17,7 +17,7 @@ must not mention or link to `/admin`.
 
 One Next.js app, two halves that share only the Supabase client and types:
 
-- **Public site** (`/`, `/menu`, `/gallery`, `/about`, `/contact`) — anonymous
+- **Public site** (`/`, `/menu`, `/contact`) — anonymous
   menu, 5-minute revalidation. No login, no signup, no staff link.
 - **Staff POS** (`/admin/**`) — typed as `/admin/login`. Table orders, waiter
   logins, manager tools, owner reports, audit trail.
@@ -31,7 +31,7 @@ Privileged actions are written to `audit_log` by triggers the app cannot skip.
 
 | Area | State |
 | --- | --- |
-| Public site | **UI overhauled 20 Sep 2026** — night-kitchen look on all five public pages. Live menu from the DB. Logo at `public/logo.png` (header, footer, hero, favicon). |
+| Public site | **Streamlined & Overhauled 21 Sep 2026** — 3 core pages (`/`, `/menu`, `/contact`). Interactive `<MenuView />` with sticky category pill bar, dish counts, Grid/List view switcher, and featured flame badges. Night-kitchen theme with Playfair Display & Plus Jakarta Sans typography, bioluminescent ocean waves, and submerged animated seafood silhouettes. Live menu from DB. Logo at `public/logo.png`. |
 | Restaurant details | **Filled** in `src/shared/config/restaurant.ts`: Panje Shah Road, Charminar, Hyderabad 500002; phone `+91 63050 02792`; maps pin `https://maps.app.goo.gl/87xdqy1aG9HxvNs87`. **No public email.** Hours: **1:00 PM - 12:00 AM every day.** |
 | Public copy | Honest: fish and prawns, cooked to order. **No** crabs, rooftop, family rooms, AC hall, tandoor/coast mythology. |
 | Public → admin | **No link.** Staff type `/admin/login`. |
@@ -84,7 +84,7 @@ npm run check:sql    # real PG grammar over supabase/**/*.sql
 ## Routes
 
 ```
-/  /menu  /gallery  /about  /contact
+/  /menu  /contact
 /admin/login            Google + email/password — not linked from the public site
 /admin/auth/callback    OAuth code exchange, ungated on purpose
 /admin/no-access
@@ -148,7 +148,7 @@ site.
   carry a personal Google session.
 - A numeric PIN per waiter is the long-term floor login. Parked.
 - No chart library. Public site never advertises `/admin`.
-- Public visual language is night-kitchen (ink, foam, spice gold, Cormorant).
+- Public visual language is night-kitchen (ink, foam, Playfair Display titles, Plus Jakarta Sans body, frosted glass capsules, multi-layered ocean waves & wiggling seafood silhouettes).
   Admin stays the original POS chrome — do not unify the two.
 
 `AGENTS.md` / `CLAUDE.md` are written by `next dev`. Leave them alone. Git

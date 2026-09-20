@@ -25,7 +25,8 @@ const variants: Record<Variant, string> = {
     "border border-slate-300 bg-white text-slate-700 hover:border-slate-400 hover:bg-slate-50",
   ghost: "text-slate-600 hover:bg-slate-100 hover:text-slate-900",
   danger: "bg-red-600 text-white hover:bg-red-700 active:bg-red-800",
-  spice: "bg-spice-500 text-white hover:bg-spice-600 active:bg-spice-700",
+  spice:
+    "border border-white/25 bg-white/15 text-white backdrop-blur-md hover:border-white/40 hover:bg-white/25 active:bg-white/30 font-medium shadow-[0_8px_24px_-8px_rgba(0,0,0,0.4)]",
 };
 
 const sizes: Record<Size, string> = {

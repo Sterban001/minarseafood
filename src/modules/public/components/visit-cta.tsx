@@ -36,7 +36,7 @@ export function VisitCta({
                 href="/contact"
                 size="lg"
                 variant="spice"
-                className="rounded-full px-7 shadow-[0_12px_40px_-12px_rgba(216,138,32,0.7)]"
+                className="rounded-full px-7 shadow-[0_8px_24px_-8px_rgba(0,0,0,0.5)]"
               >
                 Directions and hours
                 <ArrowRight className="size-4" aria-hidden />

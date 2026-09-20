@@ -10,7 +10,6 @@ import { openOrder } from "@/modules/admin/pos/actions";
 import { FloorGrid } from "@/modules/admin/pos/components/floor-grid";
 import { getActiveWaiters, getFloor } from "@/modules/admin/pos/queries";
 import { formatMoney } from "@/shared/lib/money";
-import { Field, Input, Select } from "@/shared/ui/form";
 import { SubmitButton } from "@/shared/ui/submit-button";
 import { EmptyState } from "@/shared/ui/surface";
 
@@ -56,30 +55,8 @@ export default async function FloorPage() {
                 No table is held. It shows up under the Counter section.
               </p>
               <input type="hidden" name="tableId" value="" />
-
-              <Field label="Guests" htmlFor="takeaway-guests">
-                <Input
-                  id="takeaway-guests"
-                  name="guestCount"
-                  type="number"
-                  min={0}
-                  max={99}
-                  defaultValue={0}
-                  inputMode="numeric"
-                />
-              </Field>
-
-              {profile.role !== "waiter" ? (
-                <Field label="Waiter" htmlFor="takeaway-waiter">
-                  <Select id="takeaway-waiter" name="waiterId" defaultValue={userId}>
-                    {waiters.map((waiter) => (
-                      <option key={waiter.id} value={waiter.id}>
-                        {waiter.full_name}
-                      </option>
-                    ))}
-                  </Select>
-                </Field>
-              ) : null}
+              <input type="hidden" name="guestCount" value="0" />
+              <input type="hidden" name="waiterId" value={userId} />
 
               <SubmitButton size="md" className="w-full" pendingLabel="Opening…">
                 Start takeaway order

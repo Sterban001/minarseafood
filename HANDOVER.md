@@ -87,7 +87,7 @@ src/
   proxy.ts                      /admin gate + cookie refresh
   app/
     layout.tsx                  document shell
-    (public)/                   5 pages — no /admin links
+    (public)/                   3 pages — no /admin links
     (admin)/admin/
       login/, no-access/        ungated
       auth/callback/route.ts    ungated on purpose
@@ -117,15 +117,14 @@ from `NEXT_PUBLIC_SUPABASE_URL`.
 ## Public site traps
 
 The 20 Sep 2026 overhaul is **public-only**. Admin still uses Geist + Playfair
-and the original `bg-white` body.
-
-- **Fonts:** Outfit + Cormorant Garamond load in `src/app/(public)/layout.tsx`.
+- **Fonts:** Plus Jakarta Sans + Playfair Display load in `src/app/(public)/layout.tsx`.
   `.public-site` in `globals.css` remaps `--font-sans` / `--font-display`. Do
   not put those fonts on the root layout or the POS wordmark changes.
-- **Tokens:** `--color-ink`, `--color-foam`, `--color-pearl` and the `ocean-*`
-  animations are for the public site. Hero atmosphere is `OceanScene` — keep
-  its waves inside the overflow-hidden block **above** `WaveDivider`, or a
-  dark wave shows under the cream edge.
+- **Tokens & Scene:** `--color-ink`, `--color-foam`, `--color-pearl` and the `ocean-*`
+  animations are for the public site. Hero atmosphere is `OceanScene` with 3 distinct
+  fish species (`PomfretFish`, `MackerelFish`, `SeabassFish`) submerged in lower water bounds using local smooth swimming trajectories (`swim-local-right`, `swim-local-left`).
+  Render `<Waves />` before `<FishSchool />` so fish sit on top of dark wave gradient fills.
+- **Buttons & Info Bar:** Primary CTAs use Frosted Glass Capsule styling (`variant: "spice"`, `bg-white/15`, `backdrop-blur-md`, `border-white/25`) to prevent eye strain on dark backgrounds. Quick info (hours, address, phone) is rendered as non-blocking floating glass chips under the CTAs.
 - **Header** is always `bg-ink`. Transparent-on-scroll put white type on cream
   inner pages (hash jumps to `#starters` did not always set `scrolled`).
 - **`buttonClass()` already includes `inline-flex`.** `hidden md:inline-flex`
@@ -135,3 +134,4 @@ and the original `bg-white` body.
   the label (gallery placeholders were doubling the sentence).
 - **`phoneHref` / `whatsappHref`** live next to the address helpers in
   `restaurant.ts`. Still no public email. Still no `/admin` link.
+- **Pages & Menu View:** Streamlined to 3 pages (`/`, `/menu`, `/contact`). `/gallery` and `/about` redirect to `/`. Menu uses `<MenuView />` in `src/modules/public/components/menu-view.tsx` with sticky category pills bar, category dish counts, and Grid/Bistro List view mode switcher.

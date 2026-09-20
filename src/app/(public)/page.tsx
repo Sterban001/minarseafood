@@ -3,12 +3,9 @@ import { ArrowRight, Fish, Flame, UtensilsCrossed } from "lucide-react";
 import { DishCard } from "@/modules/public/components/dish-card";
 import { Hero } from "@/modules/public/components/hero";
 import { Ornament } from "@/modules/public/components/ornament";
-import { PhotoTile } from "@/modules/public/components/photo-tile";
 import { Section, SectionHeading } from "@/modules/public/components/section";
 import { VisitCta } from "@/modules/public/components/visit-cta";
-import { WaveDivider } from "@/modules/public/components/wave-divider";
 import { getFeaturedDishes } from "@/modules/public/data/menu";
-import { restaurant } from "@/shared/config/restaurant";
 import { ButtonLink } from "@/shared/ui/button";
 import { EmptyState } from "@/shared/ui/surface";
 
@@ -88,45 +85,6 @@ export default async function HomePage() {
           />
         )}
       </Section>
-
-      <section className="relative bg-ink text-brand-100">
-        <div className="mx-auto grid max-w-6xl items-center gap-12 px-4 py-20 sm:px-6 lg:grid-cols-2 lg:py-28">
-          <div>
-            <SectionHeading
-              align="left"
-              tone="deep"
-              eyebrow="Our story"
-              title="A family kitchen, not a chain"
-              description={restaurant.description}
-            />
-            <p className="mt-4 max-w-xl leading-relaxed text-brand-200">
-              One kitchen, one family, in Charminar. Come hungry.
-            </p>
-            <ButtonLink
-              href="/about"
-              variant="spice"
-              className="mt-8 rounded-full px-7"
-            >
-              Read more about us
-              <ArrowRight className="size-4" aria-hidden />
-            </ButtonLink>
-          </div>
-
-          <div className="grid grid-cols-2 gap-4">
-            <PhotoTile
-              className="aspect-3/4"
-              label="The kitchen"
-              caption="Where it gets cooked"
-            />
-            <PhotoTile
-              className="mt-10 aspect-3/4"
-              label="The plate"
-              caption="Fish, made to order"
-            />
-          </div>
-        </div>
-        <WaveDivider fill="#f3eee3" />
-      </section>
 
       <VisitCta />
     </>

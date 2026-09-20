@@ -298,3 +298,127 @@ export async function deleteTable(form: FormData): Promise<ActionResult> {
     return done("Table deleted.");
   });
 }
+
+// ---------------------------------------------------------------------------
+// Sections (zones)
+// ---------------------------------------------------------------------------
+
+export async function saveSection(form: FormData): Promise<ActionResult> {
+  return guarded(async () => {
+    await managerActor();
+
+    const oldZone = text(form, "oldZone");
+    const name = text(form, "name");
+
+    if (name.length < 2) return fail("Give the section a name.");
+
+    const supabase = await createServerSupabase();
+
+    if (oldZone) {
+      // Rename: update the zone column on every table in the old zone.
+      const { error } = await supabase
+        .from("dining_tables")
+        .update({ zone: name })
+        .eq("zone", oldZone);
+      if (error) throw new Error(error.message);
+
+      revalidatePath("/admin/floor-setup");
+      revalidatePath("/admin/tables");
+      return done(`"${oldZone}" renamed to "${name}".`);
+    }
+
+    // New section: check it doesn't duplicate an existing zone.
+    const { data: existing } = await supabase
+      .from("dining_tables")
+      .select("id")
+      .eq("zone", name)
+      .limit(1);
+
+    if (existing && existing.length > 0) {
+      return fail(`A section called "${name}" already exists.`);
+    }
+
+    // Create one starter table so the zone actually exists in the DB.
+    const { error } = await supabase.from("dining_tables").insert({
+      label: "T1",
+      zone: name,
+      seats: 4,
+      sort_order: 0,
+      is_active: true,
+    });
+    if (error) throw new Error(error.message);
+
+    revalidatePath("/admin/floor-setup");
+    revalidatePath("/admin/tables");
+    return done(`"${name}" added with a starter table. Edit or add more tables to it.`);
+  });
+}
+
+export async function deleteSection(form: FormData): Promise<ActionResult> {
+  return guarded(async () => {
+    await managerActor();
+
+    const zone = text(form, "zone");
+    if (!zone) return fail("Missing section name.");
+
+    const supabase = await createServerSupabase();
+
+    // Get all tables in this zone.
+    const { data: tables, error: fetchError } = await supabase
+      .from("dining_tables")
+      .select("id")
+      .eq("zone", zone);
+
+    if (fetchError) throw new Error(fetchError.message);
+    if (!tables || tables.length === 0) return fail("That section is already empty.");
+
+    const tableIds = tables.map((t) => t.id);
+
+    // Fail if any table in the zone has a live order.
+    const { count: liveCount } = await supabase
+      .from("orders")
+      .select("id", { count: "exact", head: true })
+      .in("table_id", tableIds)
+      .in("status", ["open", "billed"]);
+
+    if (liveCount) {
+      return fail("There are live orders on tables in this section. Settle or cancel them first.");
+    }
+
+    // For each table: delete if no history, deactivate if it has history.
+    const { data: withHistory } = await supabase
+      .from("orders")
+      .select("table_id")
+      .in("table_id", tableIds);
+
+    const historyIds = new Set((withHistory ?? []).map((r) => r.table_id));
+    const toDelete = tableIds.filter((id) => !historyIds.has(id));
+    const toDeactivate = tableIds.filter((id) => historyIds.has(id));
+
+    if (toDelete.length > 0) {
+      const { error } = await supabase
+        .from("dining_tables")
+        .delete()
+        .in("id", toDelete);
+      if (error) throw new Error(error.message);
+    }
+
+    if (toDeactivate.length > 0) {
+      const { error } = await supabase
+        .from("dining_tables")
+        .update({ is_active: false })
+        .in("id", toDeactivate);
+      if (error) throw new Error(error.message);
+    }
+
+    revalidatePath("/admin/floor-setup");
+    revalidatePath("/admin/tables");
+
+    if (toDeactivate.length > 0) {
+      return done(
+        `Section removed. ${toDeactivate.length} ${toDeactivate.length === 1 ? "table was" : "tables were"} switched off (past sales) and ${toDelete.length} deleted.`,
+      );
+    }
+    return done("Section deleted.");
+  });
+}
