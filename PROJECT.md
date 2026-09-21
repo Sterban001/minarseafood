@@ -3,9 +3,9 @@
 **Start here.** Then `AGENTS.md` (Next.js 16 rules). `HANDOVER.md` is traps and
 internals only — do not duplicate this file there.
 
-Last updated: 21 Sep 2026.
+Last updated: 21 Sep 2026 (deployment).
 
-Do **not** wipe sales, add gallery photos, or deploy unless asked. Do **not**
+Do **not** wipe sales or add gallery photos unless asked. Do **not**
 re-seed or overwrite dishes. Public copy must not invent amenities. Public UI
 must not mention or link to `/admin`.
 
@@ -40,8 +40,9 @@ Privileged actions are written to `audit_log` by triggers the app cannot skip.
 | Auth | Google (owner) works. Email+password (waiter) works. **Public signup off — must stay off.** |
 | Owner | `super_admin`. |
 | POS, reports, audit | Walked live. Existing bills are real rows. |
-| Service-role key | Set in `.env.local`. |
-| Sales wipe / gallery photos / deploy | **Parked.** |
+| Service-role key | Set in `.env.local` **and** in Vercel environment variables (Production only). |
+| Deploy | **Live** at `https://minarseafood.com` (Vercel). Supabase Auth → URL Configuration: Site URL and redirect URLs set to the production domain. Google OAuth redirect URI points at Supabase's callback, not the app directly. |
+| Sales wipe / gallery photos | **Parked.** |
 
 ---
 
@@ -136,9 +137,6 @@ site.
   invented `truncate`.
 - Gallery photos. `src/shared/config/gallery.ts` has no `src`. Files go in
   `public/gallery/`.
-- Deploy. When asked: Vercel with the three env vars, then add the production
-  origin to Supabase Auth URL Configuration **and** Google's redirect URIs.
-  Keep public signup off.
 
 ---
 

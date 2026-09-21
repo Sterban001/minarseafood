@@ -73,6 +73,9 @@ user's session**, so `guard_profile_changes()` still applies.
 - Google's redirect URI is **Supabase's**:
   `https://hoxifrmqlrjdloyeaaed.supabase.co/auth/v1/callback`. Ours
   (`/admin/auth/callback`) must be in Auth → URL Configuration → Redirect URLs.
+  **Already configured for `https://minarseafood.com` (production). If you add
+  another domain or preview URL, add it there too — Supabase blocks unlisted
+  origins silently (the browser gets an OAuth `?code=` pointed at localhost).**
 - Callback errors are **codes**, not sentences (`login-errors.ts`).
 - `adminDestination()` in `session.ts` is the only open-redirect check.
 - `resetPassword` uses the service key (skips DB guards) and must keep its
