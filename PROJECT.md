@@ -3,7 +3,7 @@
 **Start here.** Then `AGENTS.md` (Next.js 16 rules). `HANDOVER.md` is traps and
 internals only — do not duplicate this file there.
 
-Last updated: 21 Sep 2026 (deployment).
+Last updated: 30 Sep 2026 (Counter sales overhaul).
 
 Do **not** wipe sales or add gallery photos unless asked. Do **not**
 re-seed or overwrite dishes. Public copy must not invent amenities. Public UI
@@ -19,10 +19,9 @@ One Next.js app, two halves that share only the Supabase client and types:
 
 - **Public site** (`/`, `/menu`, `/contact`) — anonymous
   menu, 5-minute revalidation. No login, no signup, no staff link.
-- **Staff POS** (`/admin/**`) — typed as `/admin/login`. Table orders, waiter
-  logins, manager tools, owner reports, audit trail.
+- **Counter Till / Admin** (`/admin/**`) — typed as `/admin/login`. Streamlined counter-sale cash register for the owner (Quick Sale menu grid, sale receipts, history log, simplified reports, menu management).
 
-Money is computed in Postgres. Old bills keep their own names and prices.
+Money is computed in Postgres. Old sales keep their own names and prices.
 Privileged actions are written to `audit_log` by triggers the app cannot skip.
 
 ---
@@ -35,11 +34,11 @@ Privileged actions are written to `audit_log` by triggers the app cannot skip.
 | Restaurant details | **Filled** in `src/shared/config/restaurant.ts`: Panje Shah Road, Charminar, Hyderabad 500002; phone `+91 63050 02792`; maps pin `https://maps.app.goo.gl/87xdqy1aG9HxvNs87`. **No public email.** Hours: **1:00 PM - 12:00 AM every day.** |
 | Public copy | Honest: fish and prawns, cooked to order. **No** crabs, rooftop, family rooms, AC hall, tandoor/coast mythology. |
 | Public → admin | **No link.** Staff type `/admin/login`. |
-| Schema, RLS, triggers, views | Applied by hand in the SQL editor. |
-| Menu and tables | As the owner wants them. |
-| Auth | Google (owner) works. Email+password (waiter) works. **Public signup off — must stay off.** |
+| Counter Till | **Overhauled 30 Sep 2026** — Simplified cash register model. Quick Sale main page (`/admin`) with category pills & menu grid, daily sale numbering (`#1`, `#2` resetting at 5am), printable thermal receipts, expandable date-filtered sales history (`/admin/history`), and streamlined counter reports (`/admin/reports`). |
+| Schema, RLS, triggers, views | Applied by hand in the SQL editor (`20260930_counter_sale.sql`). |
+| Menu and items | As the owner wants them. |
+| Auth | Google (owner) works. Email+password works. **Public signup off — must stay off.** All staff land on `/admin` (Quick Sale). |
 | Owner | `super_admin`. |
-| POS, reports, audit | Walked live. Existing bills are real rows. |
 | Service-role key | Set in `.env.local` **and** in Vercel environment variables (Production only). |
 | Deploy | **Live** at `https://minarseafood.com` (Vercel). Supabase Auth → URL Configuration: Site URL and redirect URLs set to the production domain. Google OAuth redirect URI points at Supabase's callback, not the app directly. |
 | Sales wipe / gallery photos | **Parked.** |
@@ -51,7 +50,7 @@ Privileged actions are written to `audit_log` by triggers the app cannot skip.
 - **Ref:** `hoxifrmqlrjdloyeaaed` — `https://hoxifrmqlrjdloyeaaed.supabase.co`
 - Applied in the dashboard SQL editor, filename order:
   `20260918120000_schema.sql`, `20260918120100_policies.sql`,
-  `20260918120200_floor_snapshot.sql`, then `seed.sql`.
+  `20260918120200_floor_snapshot.sql`, `20260930_counter_sale.sql`, then `seed.sql`.
 - **No Supabase CLI and no Docker on this machine.** `npm run db:push` /
   `db:reset` do not work. Paste new SQL into the editor. Migration files are
   written to be re-runnable (`create or replace`, `if not exists`,
@@ -86,18 +85,14 @@ npm run check:sql    # real PG grammar over supabase/**/*.sql
 
 ```
 /  /menu  /contact
-/admin/login            Google + email/password — not linked from the public site
-/admin/auth/callback    OAuth code exchange, ungated on purpose
+/admin/login               Google + email/password — not linked from the public site
+/admin/auth/callback       OAuth code exchange, ungated on purpose
 /admin/no-access
-/admin                  waiters → floor, managers → reports
-/admin/tables           floor
-/admin/orders[/[orderId]]
-/admin/menu             manager
-/admin/floor-setup      manager
-/admin/staff            manager
-/admin/reports          manager; /waiters/[waiterId]; /export CSV
-/admin/audit            super admin
-/admin/bills/[orderId]  printable, no sidebar
+/admin                     Quick Sale cash-register screen (menu grid + cart + charge)
+/admin/history             Sales history log with expandable details & reprint links
+/admin/reports             Counter-sale reports (revenue, tickets, hourly, best sellers)
+/admin/menu                Menu category & dish management
+/admin/receipt/[saleId]    Printable thermal receipt page
 ```
 
 `src/app/` = routes, `src/modules/` = features, `src/shared/` = clients, types,
@@ -109,15 +104,13 @@ in `restaurant.ts`. **No public email.**
 
 ---
 
-## Roles
+## Navigation & Workflow
 
-| Role | Can |
-| --- | --- |
-| **Waiter** | Own orders only. 2-minute window to delete a mis-tap; after that a manager void. |
-| **Manager** | All live orders, voids, discounts, menu/table CRUD, waiter logins, reports. |
-| **Super Admin** | Everything, plus audit, role changes, reopening settled bills. |
-
-Staff are **switched off, never deleted**.
+The counter-sale till features 4 core navigation items:
+1. **Sale** (`/admin`): Category pills, item grid, cart sidebar, instant cash charge.
+2. **History** (`/admin/history`): Date-filtered sales log with items & reprint actions.
+3. **Reports** (`/admin/reports`): Revenue totals, daily chart, sales by hour, best seller list.
+4. **Menu** (`/admin/menu`): Category and dish CRUD & availability toggles.
 
 ---
 

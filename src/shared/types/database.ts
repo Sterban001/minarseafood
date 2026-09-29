@@ -325,6 +325,68 @@ export type Database = {
           },
         ];
       };
+      sales: {
+        Row: {
+          id: string;
+          sale_no: number;
+          business_date: string;
+          subtotal: number;
+          total: number;
+          created_at: string;
+          created_by: string | null;
+        };
+        Insert: {
+          id?: string;
+          business_date?: string;
+          subtotal?: number;
+          total?: number;
+          created_by?: string | null;
+        };
+        Update: {
+          subtotal?: number;
+          total?: number;
+        };
+        Relationships: [];
+      };
+      sale_items: {
+        Row: {
+          id: string;
+          sale_id: string;
+          menu_item_id: string | null;
+          item_name: string;
+          item_price: number;
+          qty: number;
+          line_total: number;
+          created_at: string;
+        };
+        Insert: {
+          id?: string;
+          sale_id: string;
+          menu_item_id?: string | null;
+          item_name: string;
+          item_price: number;
+          qty?: number;
+        };
+        Update: {
+          qty?: number;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "sale_items_sale_id_fkey";
+            columns: ["sale_id"];
+            isOneToOne: false;
+            referencedRelation: "sales";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "sale_items_menu_item_id_fkey";
+            columns: ["menu_item_id"];
+            isOneToOne: false;
+            referencedRelation: "menu_items";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
     };
     Views: {
       v_sales_daily: {
@@ -391,6 +453,35 @@ export type Database = {
           covers: number;
           net_sales: number;
           avg_minutes: number;
+        };
+        Relationships: [];
+      };
+      v_counter_sales_daily: {
+        Row: {
+          business_date: string;
+          sale_count: number;
+          revenue: number;
+          avg_ticket: number;
+        };
+        Relationships: [];
+      };
+      v_counter_sales_by_item: {
+        Row: {
+          business_date: string;
+          menu_item_id: string | null;
+          item_name: string;
+          qty_sold: number;
+          revenue: number;
+          sale_count: number;
+        };
+        Relationships: [];
+      };
+      v_counter_sales_hourly: {
+        Row: {
+          business_date: string;
+          hour: number;
+          sale_count: number;
+          revenue: number;
         };
         Relationships: [];
       };
@@ -461,9 +552,14 @@ export type MenuItem = Tables<"menu_items">;
 export type Order = Tables<"orders">;
 export type OrderItem = Tables<"order_items">;
 export type AuditEntry = Tables<"audit_log">;
+export type Sale = Tables<"sales">;
+export type SaleItem = Tables<"sale_items">;
 
 export type SalesDaily = Views<"v_sales_daily">;
 export type SalesByWaiter = Views<"v_sales_by_waiter">;
 export type SalesByItem = Views<"v_sales_by_item">;
 export type SalesHourly = Views<"v_sales_hourly">;
 export type TableTurnover = Views<"v_table_turnover">;
+export type CounterSalesDaily = Views<"v_counter_sales_daily">;
+export type CounterSalesByItem = Views<"v_counter_sales_by_item">;
+export type CounterSalesHourly = Views<"v_counter_sales_hourly">;

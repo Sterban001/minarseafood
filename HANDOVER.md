@@ -20,66 +20,45 @@ This file is what breaks if you change it.
 ## Database (`supabase/migrations/`)
 
 Tables: `profiles`, `dining_tables`, `menu_categories`, `menu_items`, `orders`,
-`order_items`, `audit_log`. Enums: `app_role`, `order_status`, `payment_method`.
+`order_items`, `sales`, `sale_items`, `audit_log`. Enums: `app_role`, `order_status`, `payment_method`.
 
 Must not break:
 
 - **Money is never trusted from the browser.** The app sends
-  `{order_id, menu_item_id}`. `snapshot_order_item()` copies name and price;
-  `line_total` is generated; `recalc_order_subtotal()` / `apply_order_money()`
-  derive subtotal and total on every write.
+  `{menuItemId, qty}`. `line_total` is a generated column (`qty * item_price`);
+  `recalc_sale_total()` trigger derives `subtotal` and `total` on every write.
 - **Sales day is 5am–5am, Asia/Kolkata.** Keep `business_date_for()` in SQL in
   step with `businessDateFor()` in `src/shared/lib/dates.ts`.
-- **`order_no` restarts each sales day** under a per-day advisory lock.
-  `assign_order_no()` is `SECURITY DEFINER` so a waiter's RLS cannot mint
-  duplicates.
-- **One live order per table** — partial unique index
-  `orders_one_live_per_table`.
-- **Reporting views use `security_invoker = true`.** Otherwise they run as the
-  owner and leak the whole restaurant's numbers.
-- **`floor_snapshot()`** is `SECURITY DEFINER` with a hand-picked column list
-  (RLS cannot do "these columns for everyone").
-- **`v_sales_*` counts `status = 'paid'` only.** The reports bill list is the
-  exception. Voided `line_total` is 0 — `getVoids()` / `getWaiterItems()` use a
-  separate `value` (qty × snapshot price).
+- **`sale_no` restarts each sales day** under a per-day advisory lock (`trg_assign_sale_no`).
+  `assign_sale_no()` is `SECURITY DEFINER` so concurrent client inserts cannot mint duplicate sale numbers.
+- **Reporting views use `security_invoker = true`.** `v_counter_sales_daily`, `v_counter_sales_by_item`, `v_counter_sales_hourly` respect RLS.
 
-| Trigger | Stops |
+| Trigger | Purpose |
 | --- | --- |
-| `guard_order_status` | Editing settled bills; reopening paid/cancelled without super admin; settling with no payment method |
-| `guard_closed_order_items` | Touching lines on a closed bill |
-| `guard_waiter_order_limits` | Waiter discount / cancel / reassign |
-| `guard_void_authority` | Waiter void; un-void except super admin |
+| `trg_assign_sale_no` | Mints daily resetting sale numbers (`#1`, `#2`) per business date under advisory lock |
+| `trg_recalc_sale_total` | Re-computes sale `subtotal` and `total` whenever `sale_items` are inserted/deleted/updated |
 | `guard_profile_changes` | Non-super-admins changing roles; last active super admin demoted or switched off |
 
 `can_override()` = super admin **or** `postgres` / `service_role`, so the SQL
 editor cannot lock the owner out.
 
-Audit rows are written by triggers via `audit_write()` from `auth.uid()`. If
-you add an `audit_write()` call, add the action in
-`modules/admin/audit/format.ts` or the log shows the raw string.
+Audit rows are written by triggers via `audit_write()` from `auth.uid()`.
 
 ---
 
 ## Auth traps
 
-Google = owner. Email+password = floor staff (`createStaff` + service role).
+Google = owner. Email+password = staff (`createStaff` + service role).
 Keep the Email provider **on**. Public signup **off**.
-`handle_new_auth_user()` always inserts `waiter` / `is_active = true` and
-ignores client metadata. `createStaff` then sets the real role on the **acting
-user's session**, so `guard_profile_changes()` still applies.
+`homeForRole()` redirects all authenticated staff to `/admin` (Quick Sale).
 
 - **`proxy.ts` must let `/admin/auth/*` through.** The callback arrives with no
   session. Gating it makes Google look like a Supabase failure.
 - Google's redirect URI is **Supabase's**:
   `https://hoxifrmqlrjdloyeaaed.supabase.co/auth/v1/callback`. Ours
   (`/admin/auth/callback`) must be in Auth → URL Configuration → Redirect URLs.
-  **Already configured for `https://minarseafood.com` (production). If you add
-  another domain or preview URL, add it there too — Supabase blocks unlisted
-  origins silently (the browser gets an OAuth `?code=` pointed at localhost).**
 - Callback errors are **codes**, not sentences (`login-errors.ts`).
 - `adminDestination()` in `session.ts` is the only open-redirect check.
-- `resetPassword` uses the service key (skips DB guards) and must keep its
-  TypeScript rank check: a manager may only reset a **waiter's** password.
 
 ---
 
@@ -95,22 +74,18 @@ src/
       login/, no-access/        ungated
       auth/callback/route.ts    ungated on purpose
       (app)/layout.tsx          requireStaff() + AdminShell
-      (app)/tables|orders|menu|floor-setup|staff|reports|audit
-      (print)/bills/[orderId]/
-  modules/admin/{auth,pos,menu,staff,reports,audit,components,lib}
-  modules/public/                public-only UI (hero, ocean, header/footer)
-  shared/                       supabase, database.ts, lib, ui, config
+      (app)/                    Quick Sale main screen
+      (app)/history             Sales history with expandable details & reprint
+      (app)/reports             Counter-sale reports (revenue, tickets, hourly, best sellers)
+      (app)/menu                Category & dish management
+      (print)/receipt/[saleId]/ Printable thermal receipt view
+  modules/admin/{auth,sales,menu,reports,audit,components,lib}
+  modules/public/               public-only UI (hero, ocean, header/footer)
+  shared/                      supabase, database.ts, lib, ui, config
 ```
 
 Keep: every server action returns `ActionResult` via `guarded()`; forms use
-`<ActionForm>`; confirmations live in `<Popover>`; report tables use
-`<DataTable>` with `secondary: true` for phone-hidden columns; report state
-lives in the URL; `RealtimeRefresh` is `router.refresh()` + 30s poll.
-
-Reports: manager-gated in the **page** as well as the layout. CSV
-`reports/export/route.ts` checks the role itself (no layout). Waiter drilldown
-has two attributions — `getWaiterSales` = bills owned, `getWaiterItems` = lines
-punched. Audit pages backwards on `audit_log.id`, not offset.
+`<ActionForm>`; confirmations live in `<Popover>`; report state lives in the URL.
 
 `next.config.ts` allows `next/image` from the Supabase storage host derived
 from `NEXT_PUBLIC_SUPABASE_URL`.

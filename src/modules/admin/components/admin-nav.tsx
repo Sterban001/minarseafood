@@ -3,23 +3,26 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 
-import type { AppRole } from "@/shared/types/database";
 import { cn } from "@/shared/ui/cn";
 
-import { navFor } from "./nav-items";
+import { navItems } from "./nav-items";
 
 function useIsActive() {
   const pathname = usePathname();
-  return (href: string) => pathname === href || pathname.startsWith(`${href}/`);
+  return (href: string) => {
+    // Exact match for /admin (the Sale page) to avoid highlighting on all /admin/* routes
+    if (href === "/admin") return pathname === "/admin";
+    return pathname === href || pathname.startsWith(`${href}/`);
+  };
 }
 
 /** Desktop sidebar links. */
-export function AdminSidebarNav({ role }: { role: AppRole }) {
+export function AdminSidebarNav() {
   const isActive = useIsActive();
 
   return (
     <nav className="space-y-1 px-2">
-      {navFor(role).map(({ href, label, icon: Icon }) => (
+      {navItems.map(({ href, label, icon: Icon }) => (
         <Link
           key={href}
           href={href}
@@ -38,10 +41,10 @@ export function AdminSidebarNav({ role }: { role: AppRole }) {
   );
 }
 
-/** Tablet and phone bottom bar — the main navigation for waiters on the floor. */
-export function AdminBottomNav({ role }: { role: AppRole }) {
+/** Tablet and phone bottom bar. */
+export function AdminBottomNav() {
   const isActive = useIsActive();
-  const items = navFor(role).filter((item) => item.primary);
+  const items = navItems.filter((item) => item.primary);
 
   return (
     <nav className="print-hidden fixed inset-x-0 bottom-0 z-30 border-t border-slate-200 bg-white/95 backdrop-blur lg:hidden">

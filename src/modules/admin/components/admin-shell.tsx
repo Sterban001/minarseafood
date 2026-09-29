@@ -29,7 +29,7 @@ export function AdminShell({
           <p className="mt-0.5 text-xs text-brand-300">Staff terminal</p>
         </div>
 
-        <AdminSidebarNav role={profile.role} />
+        <AdminSidebarNav />
 
         <div className="mt-auto space-y-3 border-t border-brand-800 px-4 py-4">
           <div>
@@ -81,7 +81,7 @@ export function AdminShell({
         <main className="flex-1 px-4 pt-4 pb-20 lg:px-6 lg:pb-8">{children}</main>
       </div>
 
-      <AdminBottomNav role={profile.role} />
+      <AdminBottomNav />
     </div>
   );
 }

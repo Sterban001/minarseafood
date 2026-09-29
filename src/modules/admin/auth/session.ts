@@ -87,8 +87,8 @@ export const roleBlurbs: Record<AppRole, string> = {
 };
 
 /** Where each role lands after signing in. */
-export function homeForRole(role: AppRole): string {
-  return role === "waiter" ? "/admin/tables" : "/admin/reports";
+export function homeForRole(_role: AppRole): string {
+  return "/admin";
 }
 
 /**

@@ -3,38 +3,34 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { ArrowLeft } from "lucide-react";
 
-import { PrintButton } from "@/modules/admin/pos/components/print-button";
-import { getOrderDetail } from "@/modules/admin/pos/queries";
+import { PrintButton } from "@/modules/admin/sales/components/print-button";
+import { getSaleDetail } from "@/modules/admin/sales/queries";
 import { fullAddress, restaurant } from "@/shared/config/restaurant";
-import { formatBusinessDate, formatDateTime } from "@/shared/lib/dates";
+import { formatBusinessDate, formatTime } from "@/shared/lib/dates";
 import { formatAmount, formatMoney } from "@/shared/lib/money";
 
-export const metadata: Metadata = { title: "Bill" };
+export const metadata: Metadata = { title: "Receipt" };
 
-const statusNote: Record<string, string> = {
-  open: "Provisional bill — not yet settled",
-  billed: "Awaiting payment",
-  paid: "Paid — thank you",
-  cancelled: "Cancelled",
-};
-
-export default async function BillPage({ params }: PageProps<"/admin/bills/[orderId]">) {
-  const { orderId } = await params;
-  const detail = await getOrderDetail(orderId);
+export default async function ReceiptPage({
+  params,
+}: {
+  params: Promise<{ saleId: string }>;
+}) {
+  const { saleId } = await params;
+  const detail = await getSaleDetail(saleId);
   if (!detail) notFound();
 
-  const { order, items, tableLabel, waiterName } = detail;
-  const billed = items.filter((item) => item.voided_at === null);
+  const { sale, items } = detail;
 
   return (
     <div className="mx-auto max-w-sm px-4 print:max-w-none print:px-0">
       <div className="print-hidden mb-4 flex items-center justify-between gap-3">
         <Link
-          href={`/admin/orders/${order.id}`}
+          href="/admin/history"
           className="inline-flex items-center gap-1 text-sm text-slate-600 hover:text-slate-900"
         >
           <ArrowLeft className="size-4" aria-hidden />
-          Back to the order
+          Back to history
         </Link>
         <PrintButton />
       </div>
@@ -49,15 +45,10 @@ export default async function BillPage({ params }: PageProps<"/admin/bills/[orde
         </header>
 
         <div className="mt-4 border-y border-dashed border-slate-300 py-2 text-[0.72rem] text-slate-700">
-          <Line label="Bill no." value={`#${order.order_no}`} />
-          <Line label="Sales day" value={formatBusinessDate(order.business_date)} />
-          <Line label="Table" value={tableLabel ?? "Takeaway"} />
-          <Line label="Guests" value={String(order.guest_count)} />
-          <Line label="Served by" value={waiterName ?? "—"} />
-          <Line label="Opened" value={formatDateTime(order.opened_at)} />
-          {order.closed_at ? (
-            <Line label="Settled" value={formatDateTime(order.closed_at)} />
-          ) : null}
+          <Line label="Sale no." value={`#${sale.sale_no}`} />
+          <Line label="Sales day" value={formatBusinessDate(sale.business_date)} />
+          <Line label="Time" value={formatTime(sale.created_at)} />
+          <Line label="Payment" value="CASH" />
         </div>
 
         <table className="mt-3 w-full text-[0.75rem]">
@@ -70,19 +61,12 @@ export default async function BillPage({ params }: PageProps<"/admin/bills/[orde
             </tr>
           </thead>
           <tbody className="divide-y divide-slate-100">
-            {billed.map((item) => (
+            {items.map((item) => (
               <tr key={item.id} className="align-top">
-                <td className="py-1.5 pr-2">
-                  {item.name_snapshot}
-                  {item.notes ? (
-                    <span className="block text-[0.65rem] text-slate-500">
-                      {item.notes}
-                    </span>
-                  ) : null}
-                </td>
+                <td className="py-1.5 pr-2">{item.item_name}</td>
                 <td className="py-1.5 text-center tabular-nums">{item.qty}</td>
                 <td className="py-1.5 text-right tabular-nums">
-                  {formatAmount(item.unit_price_snapshot)}
+                  {formatAmount(item.item_price)}
                 </td>
                 <td className="py-1.5 text-right tabular-nums">
                   {formatAmount(item.line_total)}
@@ -93,28 +77,14 @@ export default async function BillPage({ params }: PageProps<"/admin/bills/[orde
         </table>
 
         <div className="mt-3 space-y-1 border-t border-dashed border-slate-300 pt-2 text-[0.78rem]">
-          <Line label="Subtotal" value={formatMoney(order.subtotal)} />
-          {Number(order.discount) > 0 ? (
-            <Line
-              label={`Discount${order.discount_reason ? ` (${order.discount_reason})` : ""}`}
-              value={`− ${formatMoney(order.discount)}`}
-            />
-          ) : null}
           <div className="mt-1 flex items-baseline justify-between border-t border-slate-300 pt-1.5 text-base font-semibold text-slate-900">
             <span>Total</span>
-            <span className="tabular-nums">{formatMoney(order.total)}</span>
+            <span className="tabular-nums">{formatMoney(sale.total)}</span>
           </div>
-          {order.payment_method ? (
-            <Line label="Paid by" value={order.payment_method.toUpperCase()} />
-          ) : null}
         </div>
 
-        {order.notes ? (
-          <p className="mt-3 text-[0.7rem] text-slate-600">Note: {order.notes}</p>
-        ) : null}
-
         <p className="mt-4 border-t border-dashed border-slate-300 pt-3 text-center text-[0.7rem] font-medium text-slate-600">
-          {statusNote[order.status]}
+          Paid — thank you
         </p>
         <p className="mt-1 text-center text-[0.7rem] text-slate-500">
           Thank you — please come again.

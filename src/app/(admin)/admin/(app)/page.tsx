@@ -1,9 +1,23 @@
-import { redirect } from "next/navigation";
+import type { Metadata } from "next";
 
-import { homeForRole, requireStaff } from "@/modules/admin/auth/session";
+import { QuickSaleView } from "@/modules/admin/sales/components/quick-sale-view";
+import { getMenuForSale } from "@/modules/admin/sales/queries";
+import { EmptyState } from "@/shared/ui/surface";
 
-/** /admin is just a signpost: waiters go to the floor, managers to the numbers. */
-export default async function AdminIndexPage() {
-  const { profile } = await requireStaff();
-  redirect(homeForRole(profile.role));
+export const metadata: Metadata = { title: "Sale — Minar Sea Food" };
+
+/** /admin is now the Quick Sale screen: punch items → charge cash → print receipt. */
+export default async function QuickSalePage() {
+  const categories = await getMenuForSale();
+
+  if (!categories.length) {
+    return (
+      <EmptyState
+        title="No menu items available"
+        description="Add categories and dishes in the Menu page first."
+      />
+    );
+  }
+
+  return <QuickSaleView categories={categories} />;
 }

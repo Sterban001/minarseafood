@@ -1,13 +1,10 @@
 import Link from "next/link";
-import { Download } from "lucide-react";
 
 import { buttonClass } from "@/shared/ui/button";
 import { cn } from "@/shared/ui/cn";
 import { Input } from "@/shared/ui/form";
 
-import type { ReportName } from "../exports";
-import type { DateRange } from "../queries";
-import { presets, rangeQuery, type ResolvedRange } from "../range";
+import { presets, type ResolvedRange } from "../range";
 
 /**
  * Presets as links and a plain GET form for custom dates: no client JavaScript,
@@ -67,29 +64,5 @@ export function RangePicker({
         </button>
       </form>
     </div>
-  );
-}
-
-/**
- * A real anchor, not a `Link`: the target is a route handler that answers with
- * an attachment, so the browser has to handle it as a download.
- */
-export function CsvLink({
-  report,
-  range,
-  label = "CSV",
-}: {
-  report: ReportName;
-  range: DateRange;
-  label?: string;
-}) {
-  return (
-    <a
-      href={`/admin/reports/export${rangeQuery(range, { report })}`}
-      className="inline-flex items-center gap-1 text-xs font-medium text-slate-500 transition-colors hover:text-brand-700"
-    >
-      <Download className="size-3.5" aria-hidden />
-      {label}
-    </a>
   );
 }
