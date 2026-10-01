@@ -4,7 +4,7 @@ import { revalidatePath } from "next/cache";
 
 import { createServerSupabase } from "@/shared/supabase/server";
 
-import { actor, done, fail, guarded, type ActionResult } from "../lib/action-result";
+import { actor } from "../lib/action-result";
 
 export type SaleCartItem = {
   menuItemId: string;
@@ -26,7 +26,7 @@ export async function createSale(items: SaleCartItem[]): Promise<CreateSaleResul
   try {
     const session = await actor();
 
-    if (!items.length) return fail("Add at least one item.");
+    if (!items.length) return { ok: false, error: "Add at least one item." };
 
     const supabase = await createServerSupabase();
 
@@ -39,7 +39,7 @@ export async function createSale(items: SaleCartItem[]): Promise<CreateSaleResul
 
     if (saleError || !sale) {
       console.error("[createSale] sale insert", saleError);
-      return fail("Could not create sale. Try again.");
+      return { ok: false, error: "Could not create sale. Try again." };
     }
 
     // 2. Bulk-insert the sale items (line_total is a generated column).
@@ -57,7 +57,7 @@ export async function createSale(items: SaleCartItem[]): Promise<CreateSaleResul
       console.error("[createSale] items insert", itemsError);
       // Clean up the orphan sale header.
       await supabase.from("sales").delete().eq("id", sale.id);
-      return fail("Could not save the items. Try again.");
+      return { ok: false, error: "Could not save the items. Try again." };
     }
 
     revalidatePath("/admin");
@@ -67,6 +67,6 @@ export async function createSale(items: SaleCartItem[]): Promise<CreateSaleResul
     return { ok: true, saleId: sale.id, saleNo: sale.sale_no, message: `Sale #${sale.sale_no}` };
   } catch (error) {
     console.error("[createSale]", error);
-    return fail("Something went wrong. Try again.");
+    return { ok: false, error: "Something went wrong. Try again." };
   }
 }

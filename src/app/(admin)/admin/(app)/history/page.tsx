@@ -4,7 +4,7 @@ import { ChevronLeft, ChevronRight } from "lucide-react";
 
 import { PageHeader } from "@/modules/admin/components/admin-shell";
 import { SalesHistoryView } from "@/modules/admin/sales/components/sales-history-view";
-import { getSaleDetail, getSalesHistory } from "@/modules/admin/sales/queries";
+import { getSaleDetail, getSalesHistory, type SaleDetail } from "@/modules/admin/sales/queries";
 import { addDays, formatBusinessDate, isValidIsoDate, todayBusinessDate } from "@/shared/lib/dates";
 
 export const metadata: Metadata = { title: "Sales History — Minar Sea Food" };
@@ -31,8 +31,10 @@ export default async function HistoryPage({
       return [s.id, detail] as const;
     }),
   );
-  const details = Object.fromEntries(
-    detailEntries.filter(([, d]) => d !== null),
+  const details: Record<string, SaleDetail> = Object.fromEntries(
+    detailEntries.filter(
+      (entry): entry is [string, SaleDetail] => entry[1] !== null,
+    ),
   );
 
   const totalRevenue = sales.reduce((sum, s) => sum + Number(s.total), 0);
