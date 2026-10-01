@@ -1,19 +1,29 @@
-import { Playfair_Display, Plus_Jakarta_Sans } from "next/font/google";
+import localFont from "next/font/local";
 
 import { SiteFooter } from "@/modules/public/components/site-footer";
 import { SiteHeader } from "@/modules/public/components/site-header";
 
-const plusJakartaSans = Plus_Jakarta_Sans({
+const plusJakartaSans = localFont({
+  src: "../../../public/fonts/plus-jakarta-sans-latin-wght-normal.woff2",
   variable: "--font-jakarta",
-  subsets: ["latin"],
-  weight: ["400", "500", "600", "700", "800"],
+  display: "swap",
+  weight: "400 800",
 });
 
-const playfair = Playfair_Display({
+const playfair = localFont({
+  src: [
+    {
+      path: "../../../public/fonts/playfair-display-latin-wght-normal.woff2",
+      style: "normal",
+    },
+    {
+      path: "../../../public/fonts/playfair-display-latin-wght-italic.woff2",
+      style: "italic",
+    },
+  ],
   variable: "--font-playfair",
-  subsets: ["latin"],
-  weight: ["600", "700", "800", "900"],
-  style: ["normal", "italic"],
+  display: "swap",
+  weight: "600 900",
 });
 
 /** Chrome for the customer-facing site. Nothing here is shared with /admin. */
