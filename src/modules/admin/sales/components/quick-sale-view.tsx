@@ -49,22 +49,26 @@ export function QuickSaleView({
 
   const categoriesRef = useRef<HTMLDivElement>(null);
   const [canScrollLeft, setCanScrollLeft] = useState(false);
-  const [canScrollRight, setCanScrollRight] = useState(false);
+  const [canScrollRight, setCanScrollRight] = useState(true);
 
   const checkCategoryScroll = useCallback(() => {
     const el = categoriesRef.current;
     if (!el) return;
-    setCanScrollLeft(el.scrollLeft > 4);
+    setCanScrollLeft(el.scrollLeft > 2);
     setCanScrollRight(el.scrollLeft + el.clientWidth < el.scrollWidth - 4);
   }, []);
 
   useEffect(() => {
     checkCategoryScroll();
+    const t1 = setTimeout(checkCategoryScroll, 100);
+    const t2 = setTimeout(checkCategoryScroll, 400);
     const el = categoriesRef.current;
     if (!el) return;
     el.addEventListener("scroll", checkCategoryScroll, { passive: true });
     window.addEventListener("resize", checkCategoryScroll);
     return () => {
+      clearTimeout(t1);
+      clearTimeout(t2);
       el.removeEventListener("scroll", checkCategoryScroll);
       window.removeEventListener("resize", checkCategoryScroll);
     };
@@ -265,18 +269,24 @@ export function QuickSaleView({
             </Button>
           </div>
         )}
-        {/* Category pills with left/right scroll controls & mouse wheel support */}
-        <div className="relative flex items-center border-b border-slate-200 bg-white">
-          {canScrollLeft && (
-            <button
-              type="button"
-              onClick={() => scrollCategories("left")}
-              className="absolute left-1 z-10 flex size-8 items-center justify-center rounded-full bg-white/95 text-slate-700 shadow-md ring-1 ring-slate-200 hover:bg-slate-100 active:scale-95 transition-all"
-              aria-label="Scroll categories left"
-            >
-              <ChevronLeft className="size-4" />
-            </button>
-          )}
+        {/* Category pills with permanent Left / Right buttons & mouse wheel support */}
+        <div className="flex items-center gap-1.5 border-b border-slate-200 bg-white px-2 py-2">
+          {/* Scroll Left Button */}
+          <button
+            type="button"
+            onClick={() => scrollCategories("left")}
+            disabled={!canScrollLeft}
+            className={cn(
+              "flex size-9 shrink-0 items-center justify-center rounded-xl border border-slate-300 bg-white text-slate-800 shadow-xs transition-all",
+              canScrollLeft
+                ? "hover:bg-slate-100 hover:text-slate-900 active:scale-95 cursor-pointer"
+                : "opacity-30 cursor-not-allowed text-slate-400 bg-slate-50",
+            )}
+            title="Scroll categories left"
+            aria-label="Scroll categories left"
+          >
+            <ChevronLeft className="size-5" />
+          </button>
 
           <div
             ref={categoriesRef}
@@ -285,7 +295,7 @@ export function QuickSaleView({
                 e.currentTarget.scrollLeft += e.deltaY;
               }
             }}
-            className="flex w-full gap-2 overflow-x-auto py-2.5 px-3 scroll-smooth touch-pan-x"
+            className="flex min-w-0 flex-1 gap-2 overflow-x-auto py-1 scroll-smooth touch-pan-x"
             style={{ scrollbarWidth: "thin" }}
           >
             {categories.map((cat) => (
@@ -315,16 +325,22 @@ export function QuickSaleView({
             ))}
           </div>
 
-          {canScrollRight && (
-            <button
-              type="button"
-              onClick={() => scrollCategories("right")}
-              className="absolute right-1 z-10 flex size-8 items-center justify-center rounded-full bg-white/95 text-slate-700 shadow-md ring-1 ring-slate-200 hover:bg-slate-100 active:scale-95 transition-all"
-              aria-label="Scroll categories right"
-            >
-              <ChevronRight className="size-4" />
-            </button>
-          )}
+          {/* Scroll Right Button */}
+          <button
+            type="button"
+            onClick={() => scrollCategories("right")}
+            disabled={!canScrollRight}
+            className={cn(
+              "flex size-9 shrink-0 items-center justify-center rounded-xl border border-slate-300 bg-white text-slate-800 shadow-xs transition-all",
+              canScrollRight
+                ? "hover:bg-slate-100 hover:text-slate-900 active:scale-95 cursor-pointer"
+                : "opacity-30 cursor-not-allowed text-slate-400 bg-slate-50",
+            )}
+            title="Scroll categories right"
+            aria-label="Scroll categories right"
+          >
+            <ChevronRight className="size-5" />
+          </button>
         </div>
 
         {/* Item grid */}
