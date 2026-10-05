@@ -4,7 +4,7 @@ import { ChevronLeft, ChevronRight } from "lucide-react";
 
 import { PageHeader } from "@/modules/admin/components/admin-shell";
 import { SalesHistoryView } from "@/modules/admin/sales/components/sales-history-view";
-import { getSaleDetail, getSalesHistory, type SaleDetail } from "@/modules/admin/sales/queries";
+import { getActiveBusinessDay, getSaleDetail, getSalesHistory, type SaleDetail } from "@/modules/admin/sales/queries";
 import { addDays, formatBusinessDate, isValidIsoDate, todayBusinessDate } from "@/shared/lib/dates";
 
 export const metadata: Metadata = { title: "Sales History — Minar Sea Food" };
@@ -15,12 +15,14 @@ export default async function HistoryPage({
   searchParams: Promise<{ [key: string]: string | string[] | undefined }>;
 }) {
   const sp = await searchParams;
+  const activeDay = await getActiveBusinessDay();
+  const defaultDate = activeDay?.date ?? todayBusinessDate();
   const dateParam = typeof sp?.date === "string" ? sp.date : undefined;
-  const date = dateParam && isValidIsoDate(dateParam) ? dateParam : todayBusinessDate();
+  const date = dateParam && isValidIsoDate(dateParam) ? dateParam : defaultDate;
 
   const prev = addDays(date, -1);
   const next = addDays(date, 1);
-  const isToday = date === todayBusinessDate();
+  const isToday = date === defaultDate;
 
   const sales = await getSalesHistory(date);
 

@@ -1,5 +1,55 @@
 import { createServerSupabase } from "@/shared/supabase/server";
-import type { DiningTable, MenuItem, MenuCategory, Sale, SaleItem } from "@/shared/types/database";
+import type { BusinessDay, DiningTable, MenuItem, MenuCategory, Sale, SaleItem } from "@/shared/types/database";
+
+// ---------------------------------------------------------------------------
+// Business Day Status
+// ---------------------------------------------------------------------------
+
+/**
+ * Returns the currently active (open) business day, if any.
+ * When null, the store is closed and no sales can be placed.
+ */
+export async function getActiveBusinessDay(): Promise<BusinessDay | null> {
+  try {
+    const supabase = await createServerSupabase();
+    const { data, error } = await supabase
+      .from("business_days")
+      .select("*")
+      .is("ended_at", null)
+      .order("started_at", { ascending: false })
+      .limit(1)
+      .maybeSingle();
+
+    if (error) {
+      console.warn("[getActiveBusinessDay]", error.message);
+      return null;
+    }
+    return data;
+  } catch (err) {
+    console.warn("[getActiveBusinessDay] failed", err);
+    return null;
+  }
+}
+
+/**
+ * Returns the most recent business day (either open or closed).
+ */
+export async function getLatestBusinessDay(): Promise<BusinessDay | null> {
+  try {
+    const supabase = await createServerSupabase();
+    const { data, error } = await supabase
+      .from("business_days")
+      .select("*")
+      .order("started_at", { ascending: false })
+      .limit(1)
+      .maybeSingle();
+
+    if (error) return null;
+    return data;
+  } catch {
+    return null;
+  }
+}
 
 // ---------------------------------------------------------------------------
 // Menu data for the Quick Sale grid
@@ -166,7 +216,8 @@ export type LiveTableInfo = {
 export async function getLiveTablesStatus(dateParam?: string): Promise<Record<string, LiveTableInfo>> {
   const supabase = await createServerSupabase();
   const { todayBusinessDate } = await import("@/shared/lib/dates");
-  const businessDate = dateParam ?? todayBusinessDate();
+  const activeDay = await getActiveBusinessDay();
+  const businessDate = dateParam ?? activeDay?.date ?? todayBusinessDate();
 
   const { data: sales } = await supabase
     .from("sales")
@@ -229,7 +280,8 @@ export async function getTableConsolidatedBill(
   if (!table) return null;
 
   const { todayBusinessDate } = await import("@/shared/lib/dates");
-  const businessDate = dateParam ?? todayBusinessDate();
+  const activeDay = await getActiveBusinessDay();
+  const businessDate = dateParam ?? activeDay?.date ?? todayBusinessDate();
 
   // Try fetching unbilled sales for current session first
   let { data: sales } = await supabase

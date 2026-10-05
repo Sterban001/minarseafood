@@ -401,6 +401,51 @@ export type Database = {
           },
         ];
       };
+      business_days: {
+        Row: {
+          id: string;
+          date: string;
+          started_at: string;
+          ended_at: string | null;
+          started_by: string | null;
+          ended_by: string | null;
+          created_at: string;
+        };
+        Insert: {
+          id?: string;
+          date: string;
+          started_at?: string;
+          ended_at?: string | null;
+          started_by?: string | null;
+          ended_by?: string | null;
+          created_at?: string;
+        };
+        Update: {
+          id?: string;
+          date?: string;
+          started_at?: string;
+          ended_at?: string | null;
+          started_by?: string | null;
+          ended_by?: string | null;
+          created_at?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "business_days_started_by_fkey";
+            columns: ["started_by"];
+            isOneToOne: false;
+            referencedRelation: "users";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "business_days_ended_by_fkey";
+            columns: ["ended_by"];
+            isOneToOne: false;
+            referencedRelation: "users";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
     };
     Views: {
       v_sales_daily: {
@@ -568,6 +613,7 @@ export type OrderItem = Tables<"order_items">;
 export type AuditEntry = Tables<"audit_log">;
 export type Sale = Tables<"sales">;
 export type SaleItem = Tables<"sale_items">;
+export type BusinessDay = Tables<"business_days">;
 
 export type SalesDaily = Views<"v_sales_daily">;
 export type SalesByWaiter = Views<"v_sales_by_waiter">;

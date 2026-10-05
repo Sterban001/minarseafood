@@ -1,17 +1,23 @@
 import type { Metadata } from "next";
 
 import { QuickSaleView } from "@/modules/admin/sales/components/quick-sale-view";
-import { getDiningTables, getLiveTablesStatus, getMenuForSale } from "@/modules/admin/sales/queries";
+import {
+  getActiveBusinessDay,
+  getDiningTables,
+  getLiveTablesStatus,
+  getMenuForSale,
+} from "@/modules/admin/sales/queries";
 import { EmptyState } from "@/shared/ui/surface";
 
 export const metadata: Metadata = { title: "Sale — Minar Sea Food" };
 
 /** /admin is now the Quick Sale screen: punch items → charge cash → print receipt. */
 export default async function QuickSalePage() {
-  const [categories, tables, liveTables] = await Promise.all([
+  const [categories, tables, liveTables, activeDay] = await Promise.all([
     getMenuForSale(),
     getDiningTables(),
     getLiveTablesStatus(),
+    getActiveBusinessDay(),
   ]);
 
   if (!categories.length) {
@@ -23,7 +29,14 @@ export default async function QuickSalePage() {
     );
   }
 
-  return <QuickSaleView categories={categories} tables={tables} liveTables={liveTables} />;
+  return (
+    <QuickSaleView
+      categories={categories}
+      tables={tables}
+      liveTables={liveTables}
+      activeDay={activeDay}
+    />
+  );
 }
 
 

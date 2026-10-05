@@ -5,16 +5,19 @@ import { LogOut } from "lucide-react";
 import { signOut } from "@/modules/admin/auth/actions";
 import { roleLabels, type StaffSession } from "@/modules/admin/auth/session";
 import { restaurant } from "@/shared/config/restaurant";
-import { formatBusinessDate, todayBusinessDate } from "@/shared/lib/dates";
+import type { BusinessDay } from "@/shared/types/database";
 import { Badge } from "@/shared/ui/surface";
 
 import { AdminBottomNav, AdminSidebarNav } from "./admin-nav";
+import { DayControls } from "./day-controls";
 
 export function AdminShell({
   session,
+  activeDay = null,
   children,
 }: {
   session: StaffSession;
+  activeDay?: BusinessDay | null;
   children: ReactNode;
 }) {
   const { profile } = session;
@@ -54,10 +57,7 @@ export function AdminShell({
             {restaurant.displayName}
           </Link>
 
-          <Badge tone="brand">Sales day {formatBusinessDate(todayBusinessDate())}</Badge>
-          <span className="hidden text-xs text-slate-500 xl:inline">
-            the sales day rolls over at 5am
-          </span>
+          <DayControls activeDay={activeDay} />
 
           <div className="ml-auto flex items-center gap-3">
             <span className="hidden text-sm text-slate-600 lg:inline">

@@ -3,10 +3,12 @@
 import { useCallback, useState, useTransition } from "react";
 import Link from "next/link";
 import {
+  AlertCircle,
   Check,
   ChevronDown,
   MapPin,
   Minus,
+  Play,
   Plus,
   Printer,
   ShoppingCart,
@@ -16,7 +18,7 @@ import {
 
 import { createSale, type CreateSaleResult, type SaleCartItem } from "@/modules/admin/sales/actions";
 import type { CategoryWithItems, LiveTableInfo } from "@/modules/admin/sales/queries";
-import type { DiningTable } from "@/shared/types/database";
+import type { BusinessDay, DiningTable } from "@/shared/types/database";
 import { formatMoney } from "@/shared/lib/money";
 import { Button } from "@/shared/ui/button";
 import { cn } from "@/shared/ui/cn";
@@ -27,10 +29,12 @@ export function QuickSaleView({
   categories,
   tables,
   liveTables = {},
+  activeDay = null,
 }: {
   categories: CategoryWithItems[];
   tables: DiningTable[];
   liveTables?: Record<string, LiveTableInfo>;
+  activeDay?: BusinessDay | null;
 }) {
   const [cart, setCart] = useState<CartLine[]>([]);
   const [activeCategory, setActiveCategory] = useState(categories[0]?.id ?? "");
@@ -111,6 +115,12 @@ export function QuickSaleView({
   };
 
   const handleCharge = () => {
+    if (!activeDay) {
+      setValidationError("Business day is not started. Please start the day before recording sales.");
+      window.dispatchEvent(new CustomEvent("minar:open-start-day"));
+      return;
+    }
+
     if (!cart.length || isPending) return;
 
     if (!orderType) {
@@ -190,12 +200,39 @@ export function QuickSaleView({
   }
 
   const activeCat = categories.find((c) => c.id === activeCategory);
-  const isReadyToCharge = cart.length > 0 && orderType !== null && (orderType === "takeaway" || Boolean(selectedTable));
+  const isReadyToCharge = Boolean(activeDay) && cart.length > 0 && orderType !== null && (orderType === "takeaway" || Boolean(selectedTable));
 
   return (
     <div className="flex h-[calc(100dvh-8rem)] flex-col lg:h-[calc(100dvh-4rem)] lg:flex-row">
       {/* Menu grid area */}
       <div className="flex min-w-0 flex-1 flex-col">
+        {!activeDay && (
+          <div className="mx-2 mt-2 flex flex-col sm:flex-row sm:items-center justify-between gap-3 rounded-xl border border-amber-300 bg-amber-50 p-3 text-amber-900 shadow-2xs">
+            <div className="flex items-center gap-2.5">
+              <div className="flex size-8 shrink-0 items-center justify-center rounded-lg bg-amber-200/70 text-amber-800">
+                <AlertCircle className="size-4" />
+              </div>
+              <div>
+                <p className="font-bold text-xs text-slate-900">Business Day is Not Started</p>
+                <p className="text-xs text-amber-800">
+                  Start the day to begin recording counter sales and billing tables.
+                </p>
+              </div>
+            </div>
+            <Button
+              variant="primary"
+              size="sm"
+              type="button"
+              onClick={() => {
+                window.dispatchEvent(new CustomEvent("minar:open-start-day"));
+              }}
+              className="bg-emerald-600 hover:bg-emerald-700 text-white font-semibold text-xs shrink-0"
+            >
+              <Play className="size-3.5 fill-current mr-1" />
+              Start Day Now
+            </Button>
+          </div>
+        )}
         {/* Category pills */}
         <div className="no-scrollbar flex gap-2 overflow-x-auto border-b border-slate-200 px-1 py-2">
           {categories.map((cat) => (
@@ -471,19 +508,32 @@ export function QuickSaleView({
           ) : null}
           <button
             type="button"
-            disabled={cart.length === 0 || isPending || !isReadyToCharge}
-            onClick={handleCharge}
+            disabled={cart.length === 0 || isPending || (!activeDay ? false : !isReadyToCharge)}
+            onClick={() => {
+              if (!activeDay) {
+                window.dispatchEvent(new CustomEvent("minar:open-start-day"));
+                return;
+              }
+              handleCharge();
+            }}
             className={cn(
               "flex w-full items-center justify-center gap-2 rounded-xl py-3.5 text-base font-semibold transition-all",
-              isReadyToCharge
-                ? "bg-brand-700 text-white shadow-md hover:bg-brand-800 active:scale-[0.98]"
-                : "cursor-not-allowed bg-slate-200 text-slate-400",
+              !activeDay
+                ? "bg-amber-600 text-white shadow-md hover:bg-amber-700 active:scale-[0.98]"
+                : isReadyToCharge
+                  ? "bg-brand-700 text-white shadow-md hover:bg-brand-800 active:scale-[0.98]"
+                  : "cursor-not-allowed bg-slate-200 text-slate-400",
             )}
           >
             {isPending ? (
               <span className="inline-flex items-center gap-2">
                 <span className="size-4 animate-spin rounded-full border-2 border-white border-t-transparent" />
                 Processing…
+              </span>
+            ) : !activeDay ? (
+              <span className="inline-flex items-center gap-1.5 font-bold">
+                <Play className="size-4 fill-current" />
+                Start Day to Sell
               </span>
             ) : !orderType && cart.length > 0 ? (
               <span>Select Table or Takeaway</span>

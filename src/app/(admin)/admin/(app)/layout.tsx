@@ -1,5 +1,6 @@
 import { AdminShell } from "@/modules/admin/components/admin-shell";
 import { requireStaff } from "@/modules/admin/auth/session";
+import { getActiveBusinessDay } from "@/modules/admin/sales/queries";
 
 /**
  * Nothing behind the staff login may ever be prerendered or cached: the floor
@@ -13,7 +14,10 @@ export const dynamic = "force-dynamic";
  * matters for data.
  */
 export default async function AdminAppLayout({ children }: LayoutProps<"/admin">) {
-  const session = await requireStaff();
+  const [session, activeDay] = await Promise.all([
+    requireStaff(),
+    getActiveBusinessDay(),
+  ]);
 
-  return <AdminShell session={session}>{children}</AdminShell>;
+  return <AdminShell session={session} activeDay={activeDay}>{children}</AdminShell>;
 }
