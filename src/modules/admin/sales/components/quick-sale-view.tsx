@@ -1,11 +1,13 @@
 "use client";
 
-import { useCallback, useState, useTransition } from "react";
+import { useCallback, useEffect, useRef, useState, useTransition } from "react";
 import Link from "next/link";
 import {
   AlertCircle,
   Check,
   ChevronDown,
+  ChevronLeft,
+  ChevronRight,
   MapPin,
   Minus,
   Play,
@@ -44,6 +46,36 @@ export function QuickSaleView({
   const [result, setResult] = useState<CreateSaleResult | null>(null);
   const [validationError, setValidationError] = useState<string | null>(null);
   const [isPending, startTransition] = useTransition();
+
+  const categoriesRef = useRef<HTMLDivElement>(null);
+  const [canScrollLeft, setCanScrollLeft] = useState(false);
+  const [canScrollRight, setCanScrollRight] = useState(false);
+
+  const checkCategoryScroll = useCallback(() => {
+    const el = categoriesRef.current;
+    if (!el) return;
+    setCanScrollLeft(el.scrollLeft > 4);
+    setCanScrollRight(el.scrollLeft + el.clientWidth < el.scrollWidth - 4);
+  }, []);
+
+  useEffect(() => {
+    checkCategoryScroll();
+    const el = categoriesRef.current;
+    if (!el) return;
+    el.addEventListener("scroll", checkCategoryScroll, { passive: true });
+    window.addEventListener("resize", checkCategoryScroll);
+    return () => {
+      el.removeEventListener("scroll", checkCategoryScroll);
+      window.removeEventListener("resize", checkCategoryScroll);
+    };
+  }, [checkCategoryScroll, categories]);
+
+  const scrollCategories = (direction: "left" | "right") => {
+    const el = categoriesRef.current;
+    if (!el) return;
+    const amount = direction === "left" ? -280 : 280;
+    el.scrollBy({ left: amount, behavior: "smooth" });
+  };
 
   const total = cart.reduce((sum, line) => sum + line.lineTotal, 0);
   const itemCount = cart.reduce((sum, line) => sum + line.qty, 0);
@@ -233,26 +265,66 @@ export function QuickSaleView({
             </Button>
           </div>
         )}
-        {/* Category pills */}
-        <div className="no-scrollbar flex gap-2 overflow-x-auto border-b border-slate-200 px-1 py-2">
-          {categories.map((cat) => (
+        {/* Category pills with left/right scroll controls & mouse wheel support */}
+        <div className="relative flex items-center border-b border-slate-200 bg-white">
+          {canScrollLeft && (
             <button
-              key={cat.id}
               type="button"
-              onClick={() => setActiveCategory(cat.id)}
-              className={cn(
-                "shrink-0 rounded-full px-4 py-1.5 text-sm font-medium transition-colors",
-                activeCategory === cat.id
-                  ? "bg-brand-700 text-white shadow-sm"
-                  : "bg-slate-100 text-slate-600 hover:bg-slate-200",
-              )}
+              onClick={() => scrollCategories("left")}
+              className="absolute left-1 z-10 flex size-8 items-center justify-center rounded-full bg-white/95 text-slate-700 shadow-md ring-1 ring-slate-200 hover:bg-slate-100 active:scale-95 transition-all"
+              aria-label="Scroll categories left"
             >
-              {cat.name}
-              <span className="ml-1.5 text-xs opacity-70">
-                {cat.items.length}
-              </span>
+              <ChevronLeft className="size-4" />
             </button>
-          ))}
+          )}
+
+          <div
+            ref={categoriesRef}
+            onWheel={(e) => {
+              if (e.deltaY !== 0) {
+                e.currentTarget.scrollLeft += e.deltaY;
+              }
+            }}
+            className="flex w-full gap-2 overflow-x-auto py-2.5 px-3 scroll-smooth touch-pan-x"
+            style={{ scrollbarWidth: "thin" }}
+          >
+            {categories.map((cat) => (
+              <button
+                key={cat.id}
+                type="button"
+                onClick={() => setActiveCategory(cat.id)}
+                className={cn(
+                  "shrink-0 rounded-full px-4 py-1.5 text-sm font-semibold transition-all whitespace-nowrap",
+                  activeCategory === cat.id
+                    ? "bg-brand-700 text-white shadow-xs scale-[1.02]"
+                    : "bg-slate-100 text-slate-700 hover:bg-slate-200",
+                )}
+              >
+                {cat.name}
+                <span
+                  className={cn(
+                    "ml-1.5 rounded-full px-1.5 py-0.5 text-xs font-bold",
+                    activeCategory === cat.id
+                      ? "bg-white/20 text-white"
+                      : "bg-slate-200 text-slate-600",
+                  )}
+                >
+                  {cat.items.length}
+                </span>
+              </button>
+            ))}
+          </div>
+
+          {canScrollRight && (
+            <button
+              type="button"
+              onClick={() => scrollCategories("right")}
+              className="absolute right-1 z-10 flex size-8 items-center justify-center rounded-full bg-white/95 text-slate-700 shadow-md ring-1 ring-slate-200 hover:bg-slate-100 active:scale-95 transition-all"
+              aria-label="Scroll categories right"
+            >
+              <ChevronRight className="size-4" />
+            </button>
+          )}
         </div>
 
         {/* Item grid */}
