@@ -330,6 +330,8 @@ export type Database = {
           id: string;
           sale_no: number;
           business_date: string;
+          table_id: string | null;
+          table_billed_at: string | null;
           subtotal: number;
           total: number;
           created_at: string;
@@ -338,15 +340,27 @@ export type Database = {
         Insert: {
           id?: string;
           business_date?: string;
+          table_id?: string | null;
+          table_billed_at?: string | null;
           subtotal?: number;
           total?: number;
           created_by?: string | null;
         };
         Update: {
+          table_id?: string | null;
+          table_billed_at?: string | null;
           subtotal?: number;
           total?: number;
         };
-        Relationships: [];
+        Relationships: [
+          {
+            foreignKeyName: "sales_table_id_fkey";
+            columns: ["table_id"];
+            isOneToOne: false;
+            referencedRelation: "dining_tables";
+            referencedColumns: ["id"];
+          },
+        ];
       };
       sale_items: {
         Row: {

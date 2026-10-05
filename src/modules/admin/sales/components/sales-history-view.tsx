@@ -17,6 +17,7 @@ type Props = {
 
 export function SalesHistoryView({ sales, details }: Props) {
   const [expanded, setExpanded] = useState<Set<string>>(new Set());
+  const [filter, setFilter] = useState<string>("");
 
   const toggle = (id: string) => {
     setExpanded((prev) => {
@@ -26,6 +27,14 @@ export function SalesHistoryView({ sales, details }: Props) {
       return next;
     });
   };
+
+  const filteredSales = sales.filter((s) => {
+    if (!filter.trim()) return true;
+    const query = filter.toLowerCase().trim();
+    const tableLabel = (s.table_label || "takeaway").toLowerCase();
+    const saleNo = `#${s.sale_no}`.toLowerCase();
+    return tableLabel.includes(query) || saleNo.includes(query);
+  });
 
   if (sales.length === 0) {
     return (
@@ -38,8 +47,33 @@ export function SalesHistoryView({ sales, details }: Props) {
   }
 
   return (
-    <div className="space-y-2">
-      {sales.map((sale) => {
+    <div className="space-y-3">
+      {/* Search / Filter bar */}
+      <div className="flex items-center gap-2">
+        <input
+          type="text"
+          value={filter}
+          onChange={(e) => setFilter(e.target.value)}
+          placeholder="Filter by table (e.g. T1) or sale #..."
+          className="w-full max-w-xs rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-xs font-medium text-slate-800 placeholder:text-slate-400 focus:border-brand-500 focus:outline-none focus:ring-1 focus:ring-brand-500"
+        />
+        {filter ? (
+          <button
+            type="button"
+            onClick={() => setFilter("")}
+            className="text-xs text-slate-500 hover:text-slate-700"
+          >
+            Clear
+          </button>
+        ) : null}
+      </div>
+
+      {filteredSales.length === 0 ? (
+        <div className="rounded-xl border border-slate-200 bg-white p-6 text-center text-xs text-slate-500">
+          No sales found matching &ldquo;{filter}&rdquo;
+        </div>
+      ) : null}
+      {filteredSales.map((sale) => {
         const isOpen = expanded.has(sale.id);
         const detail = details[sale.id];
 
@@ -59,6 +93,15 @@ export function SalesHistoryView({ sales, details }: Props) {
               <div className="min-w-0 flex-1">
                 <p className="text-sm font-semibold text-slate-900">
                   Sale #{sale.sale_no}
+                  {sale.table_label ? (
+                    <span className="ml-1.5 rounded bg-brand-50 px-1.5 py-0.5 text-xs font-medium text-brand-700">
+                      Table {sale.table_label}
+                    </span>
+                  ) : (
+                    <span className="ml-1.5 rounded bg-amber-50 px-1.5 py-0.5 text-xs font-medium text-amber-700">
+                      Takeaway
+                    </span>
+                  )}
                 </p>
                 <p className="text-xs text-slate-500">
                   {formatTime(sale.created_at)} · {sale.item_count} {sale.item_count === 1 ? "item" : "items"}
@@ -102,14 +145,25 @@ export function SalesHistoryView({ sales, details }: Props) {
                     {formatMoney(sale.total)}
                   </span>
                 </div>
-                <div className="mt-3">
+                <div className="mt-3 flex flex-wrap gap-2">
                   <Link
                     href={`/admin/receipt/${sale.id}`}
                     className="inline-flex items-center gap-1.5 rounded-lg bg-brand-50 px-3 py-1.5 text-xs font-medium text-brand-700 transition-colors hover:bg-brand-100"
                   >
                     <Printer className="size-3.5" />
-                    Reprint
+                    Reprint Single Item Sale
                   </Link>
+
+                  {sale.table_id ? (
+                    <Link
+                      href={`/admin/table-receipt/${sale.table_id}`}
+                      target="_blank"
+                      className="inline-flex items-center gap-1.5 rounded-lg bg-amber-50 px-3 py-1.5 text-xs font-semibold text-amber-800 transition-colors hover:bg-amber-100"
+                    >
+                      <Printer className="size-3.5" />
+                      Print Full Bill for Table {sale.table_label}
+                    </Link>
+                  ) : null}
                 </div>
               </div>
             ) : null}

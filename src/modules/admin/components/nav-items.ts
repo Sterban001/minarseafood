@@ -1,6 +1,7 @@
 import {
   BookOpenText,
   ClipboardList,
+  MapPin,
   ShoppingCart,
   TrendingUp,
 } from "lucide-react";
@@ -44,4 +45,12 @@ export const navItems: NavItem[] = [
     icon: BookOpenText,
     primary: true,
   },
+  {
+    href: "/admin/tables",
+    label: "Tables",
+    shortLabel: "Tables",
+    icon: MapPin,
+    primary: true,
+  },
 ];
+

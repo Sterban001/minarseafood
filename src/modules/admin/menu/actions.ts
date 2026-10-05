@@ -261,34 +261,7 @@ export async function deleteTable(form: FormData): Promise<ActionResult> {
   return guarded(async () => {
     await managerActor();
     const id = text(form, "id");
-
     const supabase = await createServerSupabase();
-
-    const { count: liveCount } = await supabase
-      .from("orders")
-      .select("id", { count: "exact", head: true })
-      .eq("table_id", id)
-      .in("status", ["open", "billed"]);
-
-    if (liveCount) return fail("There is a live order on that table.");
-
-    const { count: historyCount } = await supabase
-      .from("orders")
-      .select("id", { count: "exact", head: true })
-      .eq("table_id", id);
-
-    if (historyCount) {
-      // Deleting would null the table on old orders and spoil turnover reports.
-      const { error } = await supabase
-        .from("dining_tables")
-        .update({ is_active: false })
-        .eq("id", id);
-      if (error) throw new Error(error.message);
-
-      revalidatePath("/admin/floor-setup");
-      revalidatePath("/admin/tables");
-      return done("This table has past sales, so it was switched off rather than deleted.");
-    }
 
     const { error } = await supabase.from("dining_tables").delete().eq("id", id);
     if (error) throw new Error(error.message);
@@ -363,62 +336,15 @@ export async function deleteSection(form: FormData): Promise<ActionResult> {
 
     const supabase = await createServerSupabase();
 
-    // Get all tables in this zone.
-    const { data: tables, error: fetchError } = await supabase
+    const { error } = await supabase
       .from("dining_tables")
-      .select("id")
+      .delete()
       .eq("zone", zone);
 
-    if (fetchError) throw new Error(fetchError.message);
-    if (!tables || tables.length === 0) return fail("That section is already empty.");
-
-    const tableIds = tables.map((t) => t.id);
-
-    // Fail if any table in the zone has a live order.
-    const { count: liveCount } = await supabase
-      .from("orders")
-      .select("id", { count: "exact", head: true })
-      .in("table_id", tableIds)
-      .in("status", ["open", "billed"]);
-
-    if (liveCount) {
-      return fail("There are live orders on tables in this section. Settle or cancel them first.");
-    }
-
-    // For each table: delete if no history, deactivate if it has history.
-    const { data: withHistory } = await supabase
-      .from("orders")
-      .select("table_id")
-      .in("table_id", tableIds);
-
-    const historyIds = new Set((withHistory ?? []).map((r) => r.table_id));
-    const toDelete = tableIds.filter((id) => !historyIds.has(id));
-    const toDeactivate = tableIds.filter((id) => historyIds.has(id));
-
-    if (toDelete.length > 0) {
-      const { error } = await supabase
-        .from("dining_tables")
-        .delete()
-        .in("id", toDelete);
-      if (error) throw new Error(error.message);
-    }
-
-    if (toDeactivate.length > 0) {
-      const { error } = await supabase
-        .from("dining_tables")
-        .update({ is_active: false })
-        .in("id", toDeactivate);
-      if (error) throw new Error(error.message);
-    }
+    if (error) throw new Error(error.message);
 
     revalidatePath("/admin/floor-setup");
     revalidatePath("/admin/tables");
-
-    if (toDeactivate.length > 0) {
-      return done(
-        `Section removed. ${toDeactivate.length} ${toDeactivate.length === 1 ? "table was" : "tables were"} switched off (past sales) and ${toDelete.length} deleted.`,
-      );
-    }
     return done("Section deleted.");
   });
 }

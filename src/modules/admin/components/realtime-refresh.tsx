@@ -21,7 +21,7 @@ type Props = {
  */
 export function RealtimeRefresh({
   channel,
-  tables = ["orders", "order_items"],
+  tables = ["sales", "sale_items"],
   pollMs = 30_000,
 }: Props) {
   const router = useRouter();

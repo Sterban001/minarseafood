@@ -2,24 +2,49 @@
 
 import { useCallback, useState, useTransition } from "react";
 import Link from "next/link";
-import { Check, Minus, Plus, Printer, ShoppingCart, Trash2, X } from "lucide-react";
+import {
+  Check,
+  ChevronDown,
+  MapPin,
+  Minus,
+  Plus,
+  Printer,
+  ShoppingCart,
+  Trash2,
+  X,
+} from "lucide-react";
 
 import { createSale, type CreateSaleResult, type SaleCartItem } from "@/modules/admin/sales/actions";
-import type { CategoryWithItems } from "@/modules/admin/sales/queries";
+import type { CategoryWithItems, LiveTableInfo } from "@/modules/admin/sales/queries";
+import type { DiningTable } from "@/shared/types/database";
 import { formatMoney } from "@/shared/lib/money";
 import { Button } from "@/shared/ui/button";
 import { cn } from "@/shared/ui/cn";
 
 type CartLine = SaleCartItem & { lineTotal: number };
 
-export function QuickSaleView({ categories }: { categories: CategoryWithItems[] }) {
+export function QuickSaleView({
+  categories,
+  tables,
+  liveTables = {},
+}: {
+  categories: CategoryWithItems[];
+  tables: DiningTable[];
+  liveTables?: Record<string, LiveTableInfo>;
+}) {
   const [cart, setCart] = useState<CartLine[]>([]);
   const [activeCategory, setActiveCategory] = useState(categories[0]?.id ?? "");
+  const [orderType, setOrderType] = useState<"takeaway" | "table" | null>(null);
+  const [selectedTable, setSelectedTable] = useState<string | null>(null);
+  const [tablePickerOpen, setTablePickerOpen] = useState(false);
   const [result, setResult] = useState<CreateSaleResult | null>(null);
+  const [validationError, setValidationError] = useState<string | null>(null);
   const [isPending, startTransition] = useTransition();
 
   const total = cart.reduce((sum, line) => sum + line.lineTotal, 0);
   const itemCount = cart.reduce((sum, line) => sum + line.qty, 0);
+
+  const selectedTableObj = tables.find((t) => t.id === selectedTable) ?? null;
 
   const addItem = useCallback(
     (menuItemId: string, name: string, price: number) => {
@@ -35,6 +60,7 @@ export function QuickSaleView({ categories }: { categories: CategoryWithItems[] 
         return [...prev, { menuItemId, name, price, qty: 1, lineTotal: price }];
       });
       setResult(null);
+      setValidationError(null);
     },
     [],
   );
@@ -58,44 +84,103 @@ export function QuickSaleView({ categories }: { categories: CategoryWithItems[] 
 
   const clearCart = useCallback(() => {
     setCart([]);
+    setOrderType(null);
+    setSelectedTable(null);
     setResult(null);
+    setValidationError(null);
   }, []);
+
+  const handleSelectTakeaway = () => {
+    setOrderType("takeaway");
+    setSelectedTable(null);
+    setTablePickerOpen(false);
+    setValidationError(null);
+  };
+
+  const handleSelectTableMode = () => {
+    setOrderType("table");
+    setTablePickerOpen(true);
+    setValidationError(null);
+  };
+
+  const handleSelectTable = (tableId: string) => {
+    setOrderType("table");
+    setSelectedTable(tableId);
+    setTablePickerOpen(false);
+    setValidationError(null);
+  };
 
   const handleCharge = () => {
     if (!cart.length || isPending) return;
+
+    if (!orderType) {
+      setValidationError("Please select Takeaway or Dine-In Table.");
+      return;
+    }
+
+    if (orderType === "table" && !selectedTable) {
+      setValidationError("Please select a table number for Dine-In.");
+      return;
+    }
+
+    setValidationError(null);
     startTransition(async () => {
-      const res = await createSale(cart);
+      const res = await createSale(cart, orderType === "table" ? selectedTable : null);
       setResult(res);
-      if (res.ok) setCart([]);
+      if (res.ok) {
+        setCart([]);
+        setOrderType(null);
+        setSelectedTable(null);
+      }
     });
   };
 
   const handleNewSale = () => {
     setResult(null);
     setCart([]);
+    setOrderType(null);
+    setSelectedTable(null);
+    setValidationError(null);
   };
+
+  // Group tables by zone for the picker
+  const tablesByZone = tables.reduce<Record<string, DiningTable[]>>((acc, t) => {
+    (acc[t.zone] ??= []).push(t);
+    return acc;
+  }, {});
 
   // Success state
   if (result?.ok) {
     return (
       <div className="flex min-h-[60vh] flex-col items-center justify-center gap-6 px-4">
+        {/* Hidden iframe triggers automatic 1-click printing immediately when sale completes */}
+        <iframe
+          src={`/admin/receipt/${result.saleId}`}
+          className="hidden"
+          aria-hidden="true"
+        />
         <div className="flex size-20 items-center justify-center rounded-full bg-emerald-100">
           <Check className="size-10 text-emerald-600" strokeWidth={2.5} />
         </div>
         <div className="text-center">
-          <h2 className="text-2xl font-semibold text-slate-900">
+          <h2 className="text-2xl font-bold text-slate-900">
             Sale #{result.saleNo}
           </h2>
-          <p className="mt-1 text-slate-500">Payment received</p>
+          <p className="mt-1 text-sm font-medium text-emerald-600">
+            ✓ Payment received • Print dialog launched
+          </p>
         </div>
         <div className="flex flex-wrap gap-3">
-          <Link
-            href={`/admin/receipt/${result.saleId}`}
-            className="inline-flex items-center gap-2 rounded-lg bg-brand-700 px-5 py-2.5 text-sm font-medium text-white transition-colors hover:bg-brand-800"
+          <Button
+            variant="primary"
+            onClick={() => {
+              const printWin = window.open(`/admin/receipt/${result.saleId}`, "_blank");
+              printWin?.focus();
+            }}
           >
             <Printer className="size-4" aria-hidden />
-            Print Receipt
-          </Link>
+            Reprint Ticket
+          </Button>
           <Button variant="outline" onClick={handleNewSale}>
             Next Sale
           </Button>
@@ -105,6 +190,7 @@ export function QuickSaleView({ categories }: { categories: CategoryWithItems[] 
   }
 
   const activeCat = categories.find((c) => c.id === activeCategory);
+  const isReadyToCharge = cart.length > 0 && orderType !== null && (orderType === "takeaway" || Boolean(selectedTable));
 
   return (
     <div className="flex h-[calc(100dvh-8rem)] flex-col lg:h-[calc(100dvh-4rem)] lg:flex-row">
@@ -188,6 +274,135 @@ export function QuickSaleView({ categories }: { categories: CategoryWithItems[] 
           ) : null}
         </div>
 
+        {/* Order Type & Table Selection Section (Mandatory) */}
+        <div className="border-b border-slate-200 px-4 py-3 bg-white space-y-2.5">
+          <div className="flex items-center justify-between">
+            <span className="text-xs font-semibold uppercase tracking-wider text-slate-500">
+              Order Type <span className="text-red-500">*</span>
+            </span>
+            {orderType ? (
+              <span className="text-xs font-medium text-brand-700">
+                {orderType === "takeaway" ? "🛍️ Takeaway" : selectedTableObj ? `🍽️ Table ${selectedTableObj.label}` : "Select Table"}
+              </span>
+            ) : null}
+          </div>
+
+          {/* Segmented options: Takeaway vs Dine-In Table */}
+          <div className="grid grid-cols-2 gap-2">
+            <button
+              type="button"
+              onClick={handleSelectTakeaway}
+              className={cn(
+                "flex items-center justify-center gap-1.5 rounded-lg border py-2 text-xs font-semibold transition-all",
+                orderType === "takeaway"
+                  ? "border-amber-400 bg-amber-50 text-amber-900 shadow-xs"
+                  : "border-slate-200 bg-slate-50 text-slate-700 hover:bg-slate-100",
+              )}
+            >
+              🛍️ Takeaway
+            </button>
+
+            <button
+              type="button"
+              onClick={handleSelectTableMode}
+              className={cn(
+                "flex items-center justify-center gap-1.5 rounded-lg border py-2 text-xs font-semibold transition-all",
+                orderType === "table"
+                  ? "border-brand-400 bg-brand-50 text-brand-900 shadow-xs"
+                  : "border-slate-200 bg-slate-50 text-slate-700 hover:bg-slate-100",
+              )}
+            >
+              🍽️ Table {selectedTableObj ? `(${selectedTableObj.label})` : ""}
+            </button>
+          </div>
+
+          {selectedTable ? (
+            <div className="flex items-center justify-between rounded-lg bg-brand-50/70 px-2.5 py-1.5 text-xs">
+              <span className="font-semibold text-brand-800">Table {selectedTableObj?.label}</span>
+              <Link
+                href={`/admin/table-receipt/${selectedTable}`}
+                target="_blank"
+                className="inline-flex items-center gap-1 font-semibold text-brand-700 hover:text-brand-900 hover:underline"
+              >
+                <Printer className="size-3.5" />
+                Print Full Table Bill
+              </Link>
+            </div>
+          ) : null}
+
+          {/* Table Picker Dropdown / Grid */}
+          {orderType === "table" || tablePickerOpen ? (
+            <div className="relative pt-1">
+              <button
+                type="button"
+                onClick={() => setTablePickerOpen(!tablePickerOpen)}
+                className={cn(
+                  "flex w-full items-center justify-between gap-2 rounded-lg border px-3 py-2 text-left text-xs transition-all",
+                  selectedTable
+                    ? "border-brand-300 bg-brand-50 font-semibold text-brand-800"
+                    : "border-amber-300 bg-amber-50/50 text-amber-800 font-medium",
+                )}
+              >
+                <div className="flex items-center gap-2 truncate">
+                  <MapPin className="size-3.5 shrink-0" />
+                  <span>
+                    {selectedTableObj
+                      ? `Table ${selectedTableObj.label} (${selectedTableObj.zone})`
+                      : "Tap to select table number *"}
+                  </span>
+                </div>
+                <ChevronDown
+                  className={cn(
+                    "size-4 shrink-0 transition-transform",
+                    tablePickerOpen && "rotate-180",
+                  )}
+                />
+              </button>
+
+              {tablePickerOpen ? (
+                <div className="absolute left-0 right-0 top-full z-30 mt-1.5 max-h-64 overflow-y-auto rounded-xl border border-slate-200 bg-white p-2 shadow-xl">
+                  {tables.length === 0 ? (
+                    <p className="p-2 text-center text-xs text-slate-500">
+                      No active tables configured. Go to Admin &gt; Tables to add tables.
+                    </p>
+                  ) : (
+                    Object.entries(tablesByZone).map(([zone, zoneTables]) => (
+                      <div key={zone} className="mb-2 last:mb-0">
+                        <div className="sticky top-0 bg-white px-2 py-1 text-[0.65rem] font-bold uppercase tracking-wider text-slate-400">
+                          {zone}
+                        </div>
+                        <div className="grid grid-cols-3 gap-1.5">
+                          {zoneTables.map((t) => {
+                            const live = liveTables[t.id];
+                            const isLive = Boolean(live?.isLive);
+                            return (
+                              <button
+                                key={t.id}
+                                type="button"
+                                onClick={() => handleSelectTable(t.id)}
+                                className={cn(
+                                  "rounded-lg border px-2 py-2 text-center text-xs font-semibold transition-all",
+                                  selectedTable === t.id
+                                    ? "border-brand-500 bg-brand-600 text-white shadow-xs"
+                                    : isLive
+                                      ? "border-emerald-400 bg-emerald-100 text-emerald-900 font-bold shadow-xs hover:bg-emerald-200"
+                                      : "border-slate-200 bg-slate-50 text-slate-700 hover:border-brand-300 hover:bg-brand-50",
+                                )}
+                              >
+                                {t.label} {isLive ? "🟢" : ""}
+                              </button>
+                            );
+                          })}
+                        </div>
+                      </div>
+                    ))
+                  )}
+                </div>
+              ) : null}
+            </div>
+          ) : null}
+        </div>
+
         {/* Cart items */}
         <div className="flex-1 overflow-y-auto px-3 py-2">
           {cart.length === 0 ? (
@@ -245,18 +460,22 @@ export function QuickSaleView({ categories }: { categories: CategoryWithItems[] 
 
         {/* Cart footer / charge button */}
         <div className="border-t border-slate-200 bg-white p-4">
-          {result && !result.ok ? (
+          {validationError ? (
+            <p className="mb-2 rounded-lg border border-red-200 bg-red-50 px-2.5 py-1.5 text-xs font-semibold text-red-700">
+              {validationError}
+            </p>
+          ) : result && !result.ok ? (
             <p className="mb-2 rounded-lg border border-red-200 bg-red-50 px-2.5 py-1.5 text-xs font-medium text-red-700">
               {result.error}
             </p>
           ) : null}
           <button
             type="button"
-            disabled={cart.length === 0 || isPending}
+            disabled={cart.length === 0 || isPending || !isReadyToCharge}
             onClick={handleCharge}
             className={cn(
               "flex w-full items-center justify-center gap-2 rounded-xl py-3.5 text-base font-semibold transition-all",
-              cart.length > 0
+              isReadyToCharge
                 ? "bg-brand-700 text-white shadow-md hover:bg-brand-800 active:scale-[0.98]"
                 : "cursor-not-allowed bg-slate-200 text-slate-400",
             )}
@@ -266,6 +485,10 @@ export function QuickSaleView({ categories }: { categories: CategoryWithItems[] 
                 <span className="size-4 animate-spin rounded-full border-2 border-white border-t-transparent" />
                 Processing…
               </span>
+            ) : !orderType && cart.length > 0 ? (
+              <span>Select Table or Takeaway</span>
+            ) : orderType === "table" && !selectedTable && cart.length > 0 ? (
+              <span>Select Table Number</span>
             ) : (
               <>Charge {formatMoney(total)}</>
             )}
@@ -275,3 +498,4 @@ export function QuickSaleView({ categories }: { categories: CategoryWithItems[] 
     </div>
   );
 }
+

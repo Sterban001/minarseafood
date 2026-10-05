@@ -5,11 +5,10 @@ import { ArrowLeft } from "lucide-react";
 
 import { PrintButton } from "@/modules/admin/sales/components/print-button";
 import { getSaleDetail } from "@/modules/admin/sales/queries";
-import { fullAddress, restaurant } from "@/shared/config/restaurant";
 import { formatBusinessDate, formatTime } from "@/shared/lib/dates";
 import { formatAmount, formatMoney } from "@/shared/lib/money";
 
-export const metadata: Metadata = { title: "Receipt" };
+export const metadata: Metadata = { title: "Staff Receipt" };
 
 export default async function ReceiptPage({
   params,
@@ -23,7 +22,7 @@ export default async function ReceiptPage({
   const { sale, items } = detail;
 
   return (
-    <div className="mx-auto max-w-sm px-4 print:max-w-none print:px-0">
+    <div className="mx-auto max-w-xs px-4 print:max-w-none print:px-0">
       <div className="print-hidden mb-4 flex items-center justify-between gap-3">
         <Link
           href="/admin/history"
@@ -32,41 +31,38 @@ export default async function ReceiptPage({
           <ArrowLeft className="size-4" aria-hidden />
           Back to history
         </Link>
-        <PrintButton />
+        <PrintButton autoPrint />
       </div>
 
-      <div className="print-sheet rounded-xl border border-slate-200 bg-white p-6 shadow-sm">
-        <header className="text-center">
-          <h1 className="font-display text-xl font-semibold tracking-wide text-slate-900">
-            {restaurant.displayName}
-          </h1>
-          <p className="mt-1 text-[0.7rem] leading-snug text-slate-500">{fullAddress}</p>
-          <p className="text-[0.7rem] text-slate-500">{restaurant.phone}</p>
+      <div className="print-sheet rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
+        <header className="border-b border-dashed border-slate-300 pb-2 text-center">
+          <div className="text-2xl font-black tracking-tight text-slate-900 uppercase">
+            {sale.table_label ? `TABLE ${sale.table_label}` : "🛍️ TAKEAWAY"}
+          </div>
+          <div className="mt-1 text-sm font-bold text-slate-700">
+            Sale #{sale.sale_no}
+          </div>
         </header>
 
-        <div className="mt-4 border-y border-dashed border-slate-300 py-2 text-[0.72rem] text-slate-700">
-          <Line label="Sale no." value={`#${sale.sale_no}`} />
-          <Line label="Sales day" value={formatBusinessDate(sale.business_date)} />
+        <div className="mt-2 border-b border-dashed border-slate-300 pb-2 text-[0.72rem] text-slate-700 space-y-0.5">
+          <Line label="Date" value={formatBusinessDate(sale.business_date)} />
           <Line label="Time" value={formatTime(sale.created_at)} />
-          <Line label="Payment" value="CASH" />
         </div>
 
-        <table className="mt-3 w-full text-[0.75rem]">
+        <table className="mt-3 w-full text-[0.78rem]">
           <thead>
             <tr className="border-b border-slate-300 text-left text-slate-500">
               <th className="pb-1 font-medium">Item</th>
               <th className="pb-1 text-center font-medium">Qty</th>
-              <th className="pb-1 text-right font-medium">Rate</th>
               <th className="pb-1 text-right font-medium">Amount</th>
             </tr>
           </thead>
           <tbody className="divide-y divide-slate-100">
             {items.map((item) => (
               <tr key={item.id} className="align-top">
-                <td className="py-1.5 pr-2">{item.item_name}</td>
-                <td className="py-1.5 text-center tabular-nums">{item.qty}</td>
-                <td className="py-1.5 text-right tabular-nums">
-                  {formatAmount(item.item_price)}
+                <td className="py-1.5 pr-2 font-medium text-slate-900">{item.item_name}</td>
+                <td className="py-1.5 text-center font-bold tabular-nums text-slate-900">
+                  {item.qty}
                 </td>
                 <td className="py-1.5 text-right tabular-nums">
                   {formatAmount(item.line_total)}
@@ -76,19 +72,12 @@ export default async function ReceiptPage({
           </tbody>
         </table>
 
-        <div className="mt-3 space-y-1 border-t border-dashed border-slate-300 pt-2 text-[0.78rem]">
-          <div className="mt-1 flex items-baseline justify-between border-t border-slate-300 pt-1.5 text-base font-semibold text-slate-900">
+        <div className="mt-3 border-t border-slate-300 pt-2 text-[0.85rem]">
+          <div className="flex items-baseline justify-between font-bold text-slate-900">
             <span>Total</span>
-            <span className="tabular-nums">{formatMoney(sale.total)}</span>
+            <span className="tabular-nums text-base">{formatMoney(sale.total)}</span>
           </div>
         </div>
-
-        <p className="mt-4 border-t border-dashed border-slate-300 pt-3 text-center text-[0.7rem] font-medium text-slate-600">
-          Paid — thank you
-        </p>
-        <p className="mt-1 text-center text-[0.7rem] text-slate-500">
-          Thank you — please come again.
-        </p>
       </div>
     </div>
   );
@@ -102,3 +91,4 @@ function Line({ label, value }: { label: string; value: string }) {
     </div>
   );
 }
+
