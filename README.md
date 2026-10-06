@@ -24,9 +24,9 @@ Counter-sale POS register, dining table billing system, and public website for *
 - **Consolidated Table Bill**: Prints a single aggregated customer bill grouping all item orders from the session (`/admin/table-receipt/[tableId]`).
 - **One-Click Settlement**: Settles the session (`table_billed_at = NOW()`), resetting table to available (`⚪ Available`).
 
-### 4. Sales History & Reports
+### 4. Sales History & Financial Reports
 - **Sales History (`/admin/history`)**: Filter by date and table, expandable item breakdown, and instant reprint.
-- **Daily Reports (`/admin/reports`)**: Revenue cards, hourly sales distribution, and top-selling dishes.
+- **Daily Reports (`/admin/reports`)**: Financial P&L summary cards (Gross Revenue, Total Expenses, Net Margin %), Day-by-Day Revenue vs Expenses curves, hourly sales distribution, best-selling dishes, and top expense categories.
 
 ### 5. Expenses & Daily Salaries (`/admin/expenses`)
 - **Daily Salaries**: Record staff wages with quick role presets and compute daily salaries total.

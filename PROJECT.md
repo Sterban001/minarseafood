@@ -2,7 +2,7 @@
 
 **Start here.** Next.js 16 rules in `AGENTS.md`. Database traps & internals in `HANDOVER.md`.
 
-Last updated: 06 Oct 2026 (Manual Business Day, Menu Seed & POS Category Scroller).
+Last updated: 06 Oct 2026 (Expenses & Salaries Tracking, Financial P&L Reports).
 
 ---
 
@@ -26,6 +26,7 @@ One Next.js app, two isolated halves sharing only Supabase client and types:
 | POS Category Scroller | Fixed Left (`<`) / Right (`>`) arrows, mouse-wheel horizontal scrolling, touch drag. |
 | Counter & Table Billing | Mandatory Takeaway vs Table selector. Live green tables (`🟢 LIVE`), consolidated bills (`/admin/table-receipt/[tableId]`), instant settlement. |
 | Expenses Management | **Implemented 06 Oct 2026** — 3 tabs: Daily Salaries Total, Itemized Daily Expenses (`qty * unit_price`), and Others (Miscellaneous). Real-time profit/burn cash balance against daily sales revenue. |
+| Financial Reports & P&L | **Updated 06 Oct 2026** — Consolidated Profit & Loss, Net Margin %, Day-by-Day Revenue vs Expenses curve, best-selling dishes, and top expense categories across custom date ranges. |
 | Database Migrations | 7 migrations in `supabase/migrations/` (schema, policies, counter sales, table link, table billed at, manual business days, expenses). |
 | Auth | Google OAuth (owner/super_admin) + Email/password (staff). Public signup off. All staff land on `/admin`. |
 | Deploy | Production on Vercel at `https://minarseafood.com`. |

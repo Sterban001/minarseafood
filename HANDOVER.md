@@ -95,7 +95,7 @@ src/
       (app)/tables/                     Dining tables CRUD & live green monitor
       (app)/history/                    Sales history log (defaults to active day)
       (app)/expenses/                   Expenses & Salaries (Salaries, Daily Items, Misc)
-      (app)/reports/                    Revenue, tickets, hourly, & top items
+      (app)/reports/                    Financial P&L, revenue, expenses, net profit, top items & categories
       (app)/menu/                       Menu category & dish management
       (print)/receipt/[saleId]/         Thermal receipt (single sale)
       (print)/table-receipt/[tableId]/  Consolidated thermal receipt (full table bill)
