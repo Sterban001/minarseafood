@@ -67,6 +67,7 @@ Read `PROJECT.md` first for state, routes, and workflow. This file covers traps 
 | `createItemExpense()` | `modules/admin/expenses/actions.ts` | Inserts itemized daily expense (`quantity * unit_price`) |
 | `createMiscExpense()` | `modules/admin/expenses/actions.ts` | Inserts miscellaneous / petty cash expense |
 | `deleteExpense()` | `modules/admin/expenses/actions.ts` | Deletes an expense row |
+| `deleteSale(saleId)` | `modules/admin/sales/actions.ts` | Deletes a sale bill and items from history, updating live tabs and reports |
 
 ---
 

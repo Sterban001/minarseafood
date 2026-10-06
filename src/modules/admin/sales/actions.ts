@@ -4,7 +4,7 @@ import { revalidatePath } from "next/cache";
 
 import { createServerSupabase } from "@/shared/supabase/server";
 
-import { actor } from "../lib/action-result";
+import { actor, done, fail, guarded, type ActionResult } from "../lib/action-result";
 
 import { getActiveBusinessDay } from "./queries";
 
@@ -246,5 +246,59 @@ export async function settleTableBill(tableId: string): Promise<{ ok: boolean; e
     return { ok: false, error: "Something went wrong." };
   }
 }
+
+/**
+ * Deletes a sale (bill) and its associated items from history.
+ * Revalidates sales history, tables status, and financial reports.
+ */
+export async function deleteSale(saleId: string): Promise<ActionResult> {
+  return guarded(async () => {
+    await actor();
+    const supabase = await createServerSupabase();
+
+    if (!saleId) return fail("Sale ID is required.");
+
+    // Fetch sale info first for confirmation/logging
+    const { data: sale, error: fetchErr } = await supabase
+      .from("sales")
+      .select("id, sale_no, total, business_date, table_id")
+      .eq("id", saleId)
+      .maybeSingle();
+
+    if (fetchErr || !sale) {
+      return fail("Bill not found or already deleted.");
+    }
+
+    // 1. Delete associated sale items first
+    const { error: itemsErr } = await supabase
+      .from("sale_items")
+      .delete()
+      .eq("sale_id", saleId);
+
+    if (itemsErr) {
+      console.error("[deleteSale] items delete error:", itemsErr);
+      return fail("Failed to delete bill items: " + itemsErr.message);
+    }
+
+    // 2. Delete the sale header
+    const { error: saleErr } = await supabase
+      .from("sales")
+      .delete()
+      .eq("id", saleId);
+
+    if (saleErr) {
+      console.error("[deleteSale] sale delete error:", saleErr);
+      return fail("Failed to delete bill: " + saleErr.message);
+    }
+
+    revalidatePath("/admin");
+    revalidatePath("/admin/history");
+    revalidatePath("/admin/reports");
+    revalidatePath("/admin/tables");
+
+    return done(`Bill #${sale.sale_no} (₹${sale.total}) deleted successfully.`);
+  });
+}
+
 
 

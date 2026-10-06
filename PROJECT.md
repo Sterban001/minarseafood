@@ -70,7 +70,7 @@ One Next.js app, two isolated halves sharing only Supabase client and types:
 /admin                        Quick Sale POS (menu grid, cart, order type, charge)
 /admin/expenses               Expenses & Salaries (Salaries, Itemized Qty*Price, Misc Others)
 /admin/tables                 Dining tables CRUD & live green table monitor
-/admin/history                Sales history log (table filters, expandable details, reprint)
+/admin/history                Sales history log (table filters, expandable details, reprint, delete bill)
 /admin/reports                Financial P&L, revenue, expenses, net profit, top items & expense categories
 /admin/menu                   Category & dish CRUD + availability toggles
 /admin/receipt/[saleId]       Printable thermal receipt (single sale)
