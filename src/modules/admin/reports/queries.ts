@@ -4,6 +4,7 @@ import { round2, toNumber } from "@/shared/lib/money";
 import type {
   CounterSalesByItem,
   CounterSalesHourly,
+  Expense,
 } from "@/shared/types/database";
 
 export type DateRange = { from: string; to: string };
@@ -149,6 +150,148 @@ export async function getCounterHourlySales(range: DateRange): Promise<HourRow[]
 
 /** The sales day starts at 5am, so 11am comes before 1am on the chart. */
 const sortHour = (hour: number) => (hour < 5 ? hour + 24 : hour);
+
+// ---------------------------------------------------------------------------
+// Expenses Report Breakdown
+// ---------------------------------------------------------------------------
+
+export type ExpenseTotals = {
+  grandTotal: number;
+  salariesTotal: number;
+  itemsTotal: number;
+  othersTotal: number;
+  count: number;
+};
+
+export type DailyExpensePoint = {
+  date: string;
+  grandTotal: number;
+  salariesTotal: number;
+  itemsTotal: number;
+  othersTotal: number;
+};
+
+export type ExpenseCategoryRow = {
+  category: string;
+  amount: number;
+  count: number;
+};
+
+export async function getExpensesReport(range: DateRange): Promise<{
+  totals: ExpenseTotals;
+  daily: DailyExpensePoint[];
+  categories: ExpenseCategoryRow[];
+}> {
+  const supabase = await createServerSupabase();
+
+  const { data, error } = await supabase
+    .from("expenses")
+    .select("*")
+    .gte("business_date", range.from)
+    .lte("business_date", range.to)
+    .order("created_at", { ascending: false });
+
+  if (error) {
+    console.warn("[getExpensesReport]", error.message);
+    return {
+      totals: { grandTotal: 0, salariesTotal: 0, itemsTotal: 0, othersTotal: 0, count: 0 },
+      daily: eachDate(range.from, range.to).map((date) => ({
+        date,
+        grandTotal: 0,
+        salariesTotal: 0,
+        itemsTotal: 0,
+        othersTotal: 0,
+      })),
+      categories: [],
+    };
+  }
+
+  const expenses = (data ?? []) as Expense[];
+
+  let salariesTotal = 0;
+  let itemsTotal = 0;
+  let othersTotal = 0;
+
+  const byDate = new Map<
+    string,
+    { grandTotal: number; salariesTotal: number; itemsTotal: number; othersTotal: number }
+  >();
+  const byCat = new Map<string, { amount: number; count: number }>();
+
+  for (const e of expenses) {
+    const amt = toNumber(e.amount);
+    const date = e.business_date;
+
+    const dateEntry = byDate.get(date) ?? {
+      grandTotal: 0,
+      salariesTotal: 0,
+      itemsTotal: 0,
+      othersTotal: 0,
+    };
+    dateEntry.grandTotal += amt;
+
+    if (e.expense_type === "salary") {
+      salariesTotal += amt;
+      dateEntry.salariesTotal += amt;
+      const catKey = "Staff Salaries";
+      const catEntry = byCat.get(catKey) ?? { amount: 0, count: 0 };
+      catEntry.amount += amt;
+      catEntry.count += 1;
+      byCat.set(catKey, catEntry);
+    } else if (e.expense_type === "daily_item") {
+      itemsTotal += amt;
+      dateEntry.itemsTotal += amt;
+      const catKey = e.category || "Kitchen Supplies";
+      const catEntry = byCat.get(catKey) ?? { amount: 0, count: 0 };
+      catEntry.amount += amt;
+      catEntry.count += 1;
+      byCat.set(catKey, catEntry);
+    } else {
+      othersTotal += amt;
+      dateEntry.othersTotal += amt;
+      const catKey = e.category || "Miscellaneous";
+      const catEntry = byCat.get(catKey) ?? { amount: 0, count: 0 };
+      catEntry.amount += amt;
+      catEntry.count += 1;
+      byCat.set(catKey, catEntry);
+    }
+
+    byDate.set(date, dateEntry);
+  }
+
+  const grandTotal = round2(salariesTotal + itemsTotal + othersTotal);
+
+  const daily: DailyExpensePoint[] = eachDate(range.from, range.to).map((date) => {
+    const entry = byDate.get(date);
+    return {
+      date,
+      grandTotal: entry ? round2(entry.grandTotal) : 0,
+      salariesTotal: entry ? round2(entry.salariesTotal) : 0,
+      itemsTotal: entry ? round2(entry.itemsTotal) : 0,
+      othersTotal: entry ? round2(entry.othersTotal) : 0,
+    };
+  });
+
+  const categories: ExpenseCategoryRow[] = [...byCat.entries()]
+    .map(([category, { amount, count }]) => ({
+      category,
+      amount: round2(amount),
+      count,
+    }))
+    .sort((a, b) => b.amount - a.amount);
+
+  return {
+    totals: {
+      grandTotal,
+      salariesTotal: round2(salariesTotal),
+      itemsTotal: round2(itemsTotal),
+      othersTotal: round2(othersTotal),
+      count: expenses.length,
+    },
+    daily,
+    categories,
+  };
+}
 
 export const defaultRange = (): DateRange => {
   const { todayBusinessDate } = require("@/shared/lib/dates");

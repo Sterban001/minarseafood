@@ -446,6 +446,71 @@ export type Database = {
           },
         ];
       };
+      expenses: {
+        Row: {
+          id: string;
+          business_date: string;
+          expense_type: "salary" | "daily_item" | "miscellaneous";
+          staff_name: string | null;
+          role: string | null;
+          item_name: string | null;
+          quantity: number | null;
+          unit: string | null;
+          unit_price: number | null;
+          title: string | null;
+          category: string | null;
+          amount: number;
+          payment_method: string;
+          notes: string | null;
+          created_at: string;
+          created_by: string | null;
+        };
+        Insert: {
+          id?: string;
+          business_date?: string;
+          expense_type: "salary" | "daily_item" | "miscellaneous";
+          staff_name?: string | null;
+          role?: string | null;
+          item_name?: string | null;
+          quantity?: number | null;
+          unit?: string | null;
+          unit_price?: number | null;
+          title?: string | null;
+          category?: string | null;
+          amount?: number;
+          payment_method?: string;
+          notes?: string | null;
+          created_at?: string;
+          created_by?: string | null;
+        };
+        Update: {
+          id?: string;
+          business_date?: string;
+          expense_type?: "salary" | "daily_item" | "miscellaneous";
+          staff_name?: string | null;
+          role?: string | null;
+          item_name?: string | null;
+          quantity?: number | null;
+          unit?: string | null;
+          unit_price?: number | null;
+          title?: string | null;
+          category?: string | null;
+          amount?: number;
+          payment_method?: string;
+          notes?: string | null;
+          created_at?: string;
+          created_by?: string | null;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "expenses_created_by_fkey";
+            columns: ["created_by"];
+            isOneToOne: false;
+            referencedRelation: "users";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
     };
     Views: {
       v_sales_daily: {
@@ -544,6 +609,19 @@ export type Database = {
         };
         Relationships: [];
       };
+      v_daily_expenses_summary: {
+        Row: {
+          business_date: string;
+          total_salaries: number;
+          total_items: number;
+          total_misc: number;
+          grand_total_expenses: number;
+          salary_count: number;
+          item_count: number;
+          misc_count: number;
+        };
+        Relationships: [];
+      };
     };
     Functions: {
       current_app_role: {
@@ -614,6 +692,8 @@ export type AuditEntry = Tables<"audit_log">;
 export type Sale = Tables<"sales">;
 export type SaleItem = Tables<"sale_items">;
 export type BusinessDay = Tables<"business_days">;
+export type Expense = Tables<"expenses">;
+export type ExpenseType = "salary" | "daily_item" | "miscellaneous";
 
 export type SalesDaily = Views<"v_sales_daily">;
 export type SalesByWaiter = Views<"v_sales_by_waiter">;
@@ -623,3 +703,4 @@ export type TableTurnover = Views<"v_table_turnover">;
 export type CounterSalesDaily = Views<"v_counter_sales_daily">;
 export type CounterSalesByItem = Views<"v_counter_sales_by_item">;
 export type CounterSalesHourly = Views<"v_counter_sales_hourly">;
+export type DailyExpensesSummary = Views<"v_daily_expenses_summary">;

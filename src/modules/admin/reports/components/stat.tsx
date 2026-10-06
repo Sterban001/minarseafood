@@ -16,7 +16,7 @@ export function Stat({
   hint?: ReactNode;
   /** Same figure for the previous period, to show a change. */
   compare?: { current: number; previous: number; label: string };
-  tone?: "neutral" | "good" | "warn";
+  tone?: "neutral" | "good" | "warn" | "danger";
 }) {
   return (
     <div
@@ -24,6 +24,7 @@ export function Stat({
         "rounded-xl border bg-white p-4",
         tone === "good" && "border-emerald-200 bg-emerald-50/40",
         tone === "warn" && "border-amber-200 bg-amber-50/40",
+        tone === "danger" && "border-red-200 bg-red-50/40",
         tone === "neutral" && "border-slate-200",
       )}
     >

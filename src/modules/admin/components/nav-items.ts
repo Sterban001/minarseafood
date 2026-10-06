@@ -2,6 +2,7 @@ import {
   BookOpenText,
   ClipboardList,
   MapPin,
+  ReceiptIndianRupee,
   ShoppingCart,
   TrendingUp,
 } from "lucide-react";
@@ -29,6 +30,13 @@ export const navItems: NavItem[] = [
     label: "History",
     shortLabel: "History",
     icon: ClipboardList,
+    primary: true,
+  },
+  {
+    href: "/admin/expenses",
+    label: "Expenses",
+    shortLabel: "Expenses",
+    icon: ReceiptIndianRupee,
     primary: true,
   },
   {

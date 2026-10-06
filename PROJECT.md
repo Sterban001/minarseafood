@@ -25,7 +25,8 @@ One Next.js app, two isolated halves sharing only Supabase client and types:
 | Menu & Items | **Overhauled 05 Oct 2026** — 8 official categories, 27 dishes seeded from physical menu card (Starters/Dry, Gravies/Wet, Rotis, Fish Thali, Mandi, Extras, Ready-To-Fry, Beverages). |
 | POS Category Scroller | Fixed Left (`<`) / Right (`>`) arrows, mouse-wheel horizontal scrolling, touch drag. |
 | Counter & Table Billing | Mandatory Takeaway vs Table selector. Live green tables (`🟢 LIVE`), consolidated bills (`/admin/table-receipt/[tableId]`), instant settlement. |
-| Database Migrations | 6 migrations in `supabase/migrations/` (schema, policies, counter sales, table link, table billed at, manual business days). |
+| Expenses Management | **Implemented 06 Oct 2026** — 3 tabs: Daily Salaries Total, Itemized Daily Expenses (`qty * unit_price`), and Others (Miscellaneous). Real-time profit/burn cash balance against daily sales revenue. |
+| Database Migrations | 7 migrations in `supabase/migrations/` (schema, policies, counter sales, table link, table billed at, manual business days, expenses). |
 | Auth | Google OAuth (owner/super_admin) + Email/password (staff). Public signup off. All staff land on `/admin`. |
 | Deploy | Production on Vercel at `https://minarseafood.com`. |
 
@@ -48,6 +49,11 @@ One Next.js app, two isolated halves sharing only Supabase client and types:
 5. **Consolidated Table Bill & Settlement**:
    - At meal end, cashier opens `/admin/table-receipt/[tableId]` to print all session items on one consolidated customer bill.
    - Clicking **Mark Settled** sets `table_billed_at = NOW()`, clearing table back to `⚪ Available`.
+6. **Daily Expenses & Salaries Tracking**:
+   - Cashier/manager logs daily staff wage payouts (Daily Salaries tab).
+   - Cashier logs raw material supply purchases with item, quantity, and unit price (Daily Expenses tab).
+   - Miscellaneous petty cash, auto transport, and maintenance logged in Others tab.
+   - System computes real-time daily Net Cash Balance (`Day Sales - Total Day Expenses`).
 
 ---
 
@@ -61,9 +67,10 @@ One Next.js app, two isolated halves sharing only Supabase client and types:
 /admin/auth/callback          OAuth code exchange (ungated)
 /admin/no-access              Permission denied
 /admin                        Quick Sale POS (menu grid, cart, order type, charge)
+/admin/expenses               Expenses & Salaries (Salaries, Itemized Qty*Price, Misc Others)
 /admin/tables                 Dining tables CRUD & live green table monitor
 /admin/history                Sales history log (table filters, expandable details, reprint)
-/admin/reports                Daily revenue, ticket stats, hourly breakdown, top sellers
+/admin/reports                Financial P&L, revenue, expenses, net profit, top items & expense categories
 /admin/menu                   Category & dish CRUD + availability toggles
 /admin/receipt/[saleId]       Printable thermal receipt (single sale)
 /admin/table-receipt/[tableId] Printable consolidated thermal receipt (full table bill)

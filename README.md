@@ -28,7 +28,13 @@ Counter-sale POS register, dining table billing system, and public website for *
 - **Sales History (`/admin/history`)**: Filter by date and table, expandable item breakdown, and instant reprint.
 - **Daily Reports (`/admin/reports`)**: Revenue cards, hourly sales distribution, and top-selling dishes.
 
-### 5. Public Website (`/`, `/menu`, `/contact`)
+### 5. Expenses & Daily Salaries (`/admin/expenses`)
+- **Daily Salaries**: Record staff wages with quick role presets and compute daily salaries total.
+- **Daily Expenses (Itemized)**: Add kitchen and supply items by quantity and unit price with real-time cost calculation.
+- **Others (Miscellaneous)**: Record utility bills, auto transport, repairs, and petty cash.
+- **Net Cashflow Indicator**: Live daily balance calculating `Day Sales Revenue - Total Expenses`.
+
+### 6. Public Website (`/`, `/menu`, `/contact`)
 - Fast, mobile-first design with night-kitchen aesthetics, live database menu, Google Maps pin, and WhatsApp ordering link. (No admin links).
 
 ---
