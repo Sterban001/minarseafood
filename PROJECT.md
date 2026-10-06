@@ -1,100 +1,83 @@
 # MINAR SEA FOOD — project brief
 
-**Start here.** Then `AGENTS.md` (Next.js 16 rules). `HANDOVER.md` is traps and
-internals only — do not duplicate this file there.
+**Start here.** Next.js 16 rules in `AGENTS.md`. Database traps & internals in `HANDOVER.md`.
 
-Last updated: 05 Oct 2026 (Tables, Live Green Status & Consolidated Bill — committed & pushed).
-
-Do **not** wipe sales or add gallery photos unless asked. Do **not**
-re-seed or overwrite dishes. Public copy must not invent amenities. Public UI
-must not mention or link to `/admin`.
-
-**Next chat: this file, `AGENTS.md`, then [What is left](#what-is-left).**
+Last updated: 06 Oct 2026 (Manual Business Day, Menu Seed & POS Category Scroller).
 
 ---
 
 ## What this is
 
-One Next.js app, two halves that share only the Supabase client and types:
+One Next.js app, two isolated halves sharing only Supabase client and types:
 
-- **Public site** (`/`, `/menu`, `/contact`) — anonymous
-  menu, 5-minute revalidation. No login, no signup, no staff link.
-- **Counter Till / Admin** (`/admin/**`) — typed as `/admin/login`. Streamlined counter-sale & dining table cash register for the restaurant (Quick Sale menu grid, mandatory table/takeaway selector, live green table monitor, printable thermal receipts, consolidated table bills, expandable date-filtered sales history, simplified reports, dining tables CRUD, menu management).
-
-Money is computed in Postgres. Old sales keep their own names and prices.
-Privileged actions are written to `audit_log` by triggers the app cannot skip.
+- **Public Site** (`/`, `/menu`, `/contact`): Anonymous menu, 5m revalidation, night-kitchen visual theme (ocean waves, silhouettes, Playfair Display). No login links.
+- **Staff Till / Admin** (`/admin/**`): Counter POS & table billing register. Manual day sessions, quick sale menu grid, mandatory takeaway/table selector, live green table monitor, consolidated bills, printable thermal receipts, sales history, daily reports, dining tables CRUD, menu management.
 
 ---
 
-## Current state
+## Current State
 
 | Area | State |
 | --- | --- |
-| Public site | **Streamlined & Overhauled 21 Sep 2026** — 3 core pages (`/`, `/menu`, `/contact`). Interactive `<MenuView />` with sticky category pill bar, dish counts, Grid/List view switcher, and featured flame badges. Night-kitchen theme with Playfair Display & Plus Jakarta Sans typography, bioluminescent ocean waves, and submerged animated seafood silhouettes. Live menu from DB. Logo at `public/logo.png`. |
-| Restaurant details | **Filled** in `src/shared/config/restaurant.ts`: Panje Shah Road, Charminar, Hyderabad 500002; phone `+91 63050 02792`; maps pin `https://maps.app.goo.gl/87xdqy1aG9HxvNs87`. **No public email.** Hours: **1:00 PM - 12:00 AM every day.** |
-| Public copy | Honest: fish and prawns, cooked to order. **No** crabs, rooftop, family rooms, AC hall, tandoor/coast mythology. |
-| Public → admin | **No link.** Staff type `/admin/login`. |
-| Counter Till & Table Billing | **Overhauled 02 Oct 2026** — Supports counter cash sales & table billing workflow. Mandatory choice between Takeaway and Table Number on every sale. Live green table monitoring (`🟢 LIVE`), consolidated table bills (`/admin/table-receipt/[tableId]`), and session settlement. |
-| Schema, RLS, triggers, views | Applied by hand in SQL editor (`20260930_counter_sale.sql`, `20261002_sale_table_link.sql`, `20261002_sale_table_billed_at.sql`). |
-| Menu and items | As the owner wants them. |
-| Auth | Google (owner) works. Email+password works. **Public signup off — must stay off.** All staff land on `/admin` (Quick Sale). |
-| Owner | `super_admin`. |
-| Service-role key | Set in `.env.local` **and** in Vercel environment variables (Production only). |
-| Deploy | **Live** at `https://minarseafood.com` (Vercel). Supabase Auth → URL Configuration: Site URL and redirect URLs set to the production domain. Google OAuth redirect URI points at Supabase's callback, not the app directly. |
+| Public site | Live menu from DB, night-kitchen theme, no login links. Hours: 1:00 PM – 12:00 AM daily. |
+| Restaurant details | Panje Shah Road, Charminar, Hyderabad 500002; phone `+91 63050 02792`; no public email. |
+| Manual Business Day | **Implemented 05 Oct 2026** — Manual Start Day / End Day session controls via header `<DayControls>`. Sales blocked when closed. Resetting sale numbers (`#1`, `#2`) tied to active day. |
+| Menu & Items | **Overhauled 05 Oct 2026** — 8 official categories, 27 dishes seeded from physical menu card (Starters/Dry, Gravies/Wet, Rotis, Fish Thali, Mandi, Extras, Ready-To-Fry, Beverages). |
+| POS Category Scroller | Fixed Left (`<`) / Right (`>`) arrows, mouse-wheel horizontal scrolling, touch drag. |
+| Counter & Table Billing | Mandatory Takeaway vs Table selector. Live green tables (`🟢 LIVE`), consolidated bills (`/admin/table-receipt/[tableId]`), instant settlement. |
+| Database Migrations | 6 migrations in `supabase/migrations/` (schema, policies, counter sales, table link, table billed at, manual business days). |
+| Auth | Google OAuth (owner/super_admin) + Email/password (staff). Public signup off. All staff land on `/admin`. |
+| Deploy | Production on Vercel at `https://minarseafood.com`. |
 
 ---
 
-## Counter & Dining Table Operational Workflow
+## Operational Workflow
 
-Minar Seafood operates under a specific cashier-waiter workflow:
-
-1. **Item-by-Item Cash Collection**:
-   - Waiters collect cash from their own float for each dish/item ordered and bring it to the cashier counter.
-   - Cashier punches the dish in the Quick Sale till (`/admin`).
-2. **Mandatory Order Type Selection**:
-   - Cashier MUST choose either **🛍️ Takeaway** or **🍽️ Table Number** (e.g., T1, T2) before charging.
-   - Each purchase mints a daily-resetting receipt number (`#1`, `#2`, resetting at 5am).
-3. **Live Green Table Indicator (`🟢 LIVE`)**:
-   - As long as a table has active, unbilled sales for the current customer session, it turns **vibrant GREEN (`🟢 LIVE`)** on the Tables page (`/admin/tables`) and Quick Sale table picker grid.
-   - Shows live unbilled total and order count (e.g., `Unbilled: ₹850 (3 orders)`).
-4. **Consolidated Table Bill & Table Settlement**:
-   - At the end of the customer's meal, cashier opens `/admin/table-receipt/[tableId]` (or clicks **`Print & Settle Table`**).
-   - Aggregates all separate item purchases for that table session into **one clean consolidated customer bill** (with grouped items, rates, line totals, and grand total).
-   - Clicking **`Print & Settle Table`** or **`Mark Settled`** sets `sales.table_billed_at = NOW()`, clearing the green status (`⚪ Available`) ready for the next customer session.
+1. **Business Day Session**:
+   - Staff click **Start Day** in the header (or sale banner) before taking orders. Pick or confirm business date.
+   - All sales, receipts, and reports attach to this active session.
+   - At close, staff click **End Day** to seal the session. Prevents accidental off-hours sales. Reopening supported.
+2. **Item-by-Item Cash Collection**:
+   - Waiters collect cash per dish and pay the cashier.
+   - Cashier punches item(s) in Quick Sale (`/admin`).
+3. **Mandatory Order Type**:
+   - Must select **🛍️ Takeaway** or **🍽️ Table Number** (e.g. T1, T2) before charging.
+   - Minted sale number resets daily (`#1`, `#2`, ...). One-click auto-print thermal receipt.
+4. **Live Green Table Indicator (`🟢 LIVE`)**:
+   - Tables with active unbilled sales turn **GREEN** on `/admin/tables` and table picker with unbilled total & order count.
+5. **Consolidated Table Bill & Settlement**:
+   - At meal end, cashier opens `/admin/table-receipt/[tableId]` to print all session items on one consolidated customer bill.
+   - Clicking **Mark Settled** sets `table_billed_at = NOW()`, clearing table back to `⚪ Available`.
 
 ---
 
 ## Routes
 
 ```
-/  /menu  /contact
-/admin/login                     Google + email/password — not linked from the public site
-/admin/auth/callback             OAuth code exchange, ungated on purpose
-/admin/no-access
-/admin                           Quick Sale cash-register screen (menu grid + cart + mandatory table/takeaway selector + charge)
-/admin/tables                    Dining tables management & live green table monitor (🟢 LIVE status + Print & Settle actions)
-/admin/history                   Sales history log with expandable details, table filters, & reprint links
-/admin/reports                   Counter-sale reports (revenue, tickets, hourly, best sellers)
-/admin/menu                      Menu category & dish management
-/admin/receipt/[saleId]          Printable thermal receipt page for single sale
-/admin/table-receipt/[tableId]   Printable consolidated thermal table receipt for full customer session
+/                             Home (hero, ocean wave, hours, map)
+/menu                         Public menu (category pills, search, filter)
+/contact                      Location, contact, directions
+/admin/login                  Staff authentication (Google & password)
+/admin/auth/callback          OAuth code exchange (ungated)
+/admin/no-access              Permission denied
+/admin                        Quick Sale POS (menu grid, cart, order type, charge)
+/admin/tables                 Dining tables CRUD & live green table monitor
+/admin/history                Sales history log (table filters, expandable details, reprint)
+/admin/reports                Daily revenue, ticket stats, hourly breakdown, top sellers
+/admin/menu                   Category & dish CRUD + availability toggles
+/admin/receipt/[saleId]       Printable thermal receipt (single sale)
+/admin/table-receipt/[tableId] Printable consolidated thermal receipt (full table bill)
 ```
 
 ---
 
-## Navigation & Workflow
+## Menu Categories (8)
 
-The admin till features 5 core navigation items:
-1. **Sale** (`/admin`): Category pills, item grid, cart sidebar, mandatory takeaway/table selector, instant cash charge.
-2. **Tables** (`/admin/tables`): Live green table monitor (`🟢 LIVE`), table billing status, add/edit/hide tables, Print & Settle table bill.
-3. **History** (`/admin/history`): Date-filtered sales log with table search filter, item details, single receipt reprint & consolidated table bill reprint.
-4. **Reports** (`/admin/reports`): Revenue totals, daily chart, sales by hour, best seller list.
-5. **Menu** (`/admin/menu`): Category and dish CRUD & availability toggles.
-
----
-
-## Decisions
-
-- Google for the owner, issued passwords for staff. Shared tablets must not carry a personal Google session.
-- No chart library. Public site never advertises `/admin`.
-- Public visual language is night-kitchen (ink, foam, Playfair Display titles, Plus Jakarta Sans body, frosted glass capsules, multi-layered ocean waves & wiggling seafood silhouettes). Admin stays the clean POS chrome.
+1. **Starters / Dry** (5 items: Pepper Fish, Broasted Fish, Prawns Fry, Chicken 65, Minar Combo)
+2. **Gravies / Wet** (5 items: Butter Malai Fish, Apollo Fish, Fish Masala, Prawns Masala, Chicken Masala)
+3. **Rotis & Bread** (2 items: Rumali Roti, Paratha)
+4. **Fish Thali** (1 item: Fish Thali ₹99)
+5. **Mandi** (5 items: Fish Mandi 1pc/2pc, Fish Juicy Mandi 1pc/2pc, Minar Mandi Platter)
+6. **Extras** (4 items: Mandi Rice, Fish Mandi Extra Piece, Fish Juicy Extra Piece, Mayonise)
+7. **Ready To Fry (Take Away)** (3 items: Pepper Fish /KG, Broasted Fish /KG, Prawns /KG)
+8. **Beverages** (4 items: Water Bottle Small ₹10, Big ₹20, Glass Cool Drink ₹15, Plastic Bottle ₹20)

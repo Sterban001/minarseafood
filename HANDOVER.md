@@ -1,100 +1,99 @@
 # MINAR SEA FOOD — engineering notes
 
-**Read `PROJECT.md` first.** State, routes, roles, and the checklist live there.
-This file is what breaks if you change it.
+Read `PROJECT.md` first for state, routes, and workflow. This file covers traps and internals.
 
 ---
 
-## Next.js 16 gotchas
+## Next.js 16 Gotchas
 
-- Middleware is **`src/proxy.ts`** exporting `proxy()`, Node runtime, no `middleware.ts`.
-- `unauthorized()` / `forbidden()` need experimental `authInterrupts` — we redirect to `/admin/no-access` instead.
-- `src/shared/types/database.ts` is **hand-written** (includes `Relationships` for nested PostgREST). `npm run db:types` writes a comparison copy to `supabase/types.generated.ts` and does **not** overwrite it.
+- Middleware is **`src/proxy.ts`** exporting `proxy()` (Node runtime, not `middleware.ts`).
+- `src/shared/types/database.ts` is hand-maintained (includes `Relationships` for PostgREST).
+- Redirect non-staff to `/admin/no-access` instead of throwing `forbidden()`.
 
 ---
 
 ## Database (`supabase/migrations/`)
 
-Tables: `profiles`, `dining_tables`, `menu_categories`, `menu_items`, `sales`, `sale_items`, `audit_log`. Enums: `app_role`, `order_status`, `payment_method`.
+**Tables:** `profiles`, `dining_tables`, `menu_categories`, `menu_items`, `sales`, `sale_items`, `business_days`, `audit_log`.  
+**Enums:** `app_role` (`super_admin`, `manager`, `waiter`), `order_status`, `payment_method`.
 
-Migration Order:
-1. `20260918120000_schema.sql`
-2. `20260918120100_policies.sql`
-3. `20260930_counter_sale.sql`
-4. `20261002_sale_table_link.sql` (adds `sales.table_id` FK)
-5. `20261002_sale_table_billed_at.sql` (adds `sales.table_billed_at` TIMESTAMPTZ)
+### Migration Order
+1. `20260918120000_schema.sql` — Core schema & RLS
+2. `20260918120100_policies.sql` — Security policies
+3. `20260930_counter_sale.sql` — Counter till tables, items, & recalculation triggers
+4. `20261002_sale_table_link.sql` — Adds `sales.table_id` FK
+5. `20261002_sale_table_billed_at.sql` — Adds `sales.table_billed_at` TIMESTAMPTZ
+6. `20261005_manual_business_day.sql` — Adds `business_days` table, active index, & triggers
 
-Must not break:
+### Critical Invariants (Must Not Break)
 
-- **Money is never trusted from the browser.** The app sends `{menuItemId, qty}`. `line_total` is a generated column (`qty * item_price`); `recalc_sale_total()` trigger derives `subtotal` and `total` on every write.
-- **Sales day is 5am–5am, Asia/Kolkata.** Keep `business_date_for()` in SQL in step with `businessDateFor()` in `src/shared/lib/dates.ts`.
-- **`sale_no` restarts each sales day** under a per-day advisory lock (`trg_assign_sale_no`). `assign_sale_no()` is `SECURITY DEFINER` so concurrent client inserts cannot mint duplicate sale numbers.
-- **Table Session Settlement & Live Status**:
-  - `sales.table_id` links a sale to a dining table.
-  - `sales.table_billed_at` is `NULL` for active unbilled sales.
-  - A table is **LIVE (`🟢 LIVE`)** if it has sales today where `table_id = table.id AND table_billed_at IS NULL`.
-  - `settleTableBill(tableId)` updates `table_billed_at = NOW()`, closing the table session and turning it back to available (`⚪ Available`).
-- **Reporting views use `security_invoker = true`.** `v_counter_sales_daily`, `v_counter_sales_by_item`, `v_counter_sales_hourly` respect RLS.
+1. **Money is never trusted from browser:** Browser sends `{menuItemId, qty}`. `line_total` is generated column (`qty * item_price`). `trg_recalc_sale_total` computes `subtotal` and `total` on write.
+2. **Manual Business Day Enforcement:**
+   - At most ONE open day (`ended_at IS NULL`) enforced by partial unique index `idx_business_days_single_active`.
+   - `assign_sale_no()` strictly requires an active row in `business_days`. If closed, it throws `'No business day is currently open. Start the day first.'`.
+   - `createSale()` and `settleTableBill()` query `getActiveBusinessDay()` and bind `business_date`.
+   - `startDay()` reopens a closed day if started again for the same date.
+3. **Daily Resetting Sale Numbers:** `sale_no` restarts per business date under advisory transaction lock (`trg_assign_sale_no`, `SECURITY DEFINER`).
+4. **Table Live Status & Settlement:**
+   - Table is **🟢 LIVE** if it has sales where `business_date = activeDay AND table_id = table.id AND table_billed_at IS NULL`.
+   - `settleTableBill(tableId)` sets `table_billed_at = NOW()`, clearing the table back to `⚪ Available`.
+5. **Security Invoker Views:** Reporting views (`v_counter_sales_daily`, `v_counter_sales_by_item`, `v_counter_sales_hourly`) run with `security_invoker = true`.
+
+### Database Triggers & Functions
 
 | Trigger / Function | Purpose |
 | --- | --- |
-| `trg_assign_sale_no` | Mints daily resetting sale numbers (`#1`, `#2`) per business date under advisory lock |
-| `trg_recalc_sale_total` | Re-computes sale `subtotal` and `total` whenever `sale_items` are inserted/deleted/updated |
-| `guard_profile_changes` | Non-super-admins changing roles; last active super admin demoted or switched off |
+| `trg_assign_sale_no` | Enforces active business day & mints resetting `#1`, `#2` sale numbers under advisory lock |
+| `trg_recalc_sale_total` | Re-computes `subtotal` and `total` on `sale_items` changes |
+| `guard_profile_changes` | Prevents non-super-admins from changing roles or demoting the last super admin |
 
-App-level table-session logic (not Postgres functions):
+### App-Level Operations
 
-| Function (app code) | Location | Purpose |
+| Function | File | Purpose |
 | --- | --- | --- |
-| `settleTableBill()` | `modules/admin/sales/actions.ts` | Server action — sets `table_billed_at = NOW()` on unbilled sales for a table to mark the session settled |
-| `getLiveTablesStatus()` | `modules/admin/sales/queries.ts` | Queries unbilled sales for today grouped by `table_id` to drive the 🟢 LIVE green table UI |
-| `getTableConsolidatedBill()` | `modules/admin/sales/queries.ts` | Aggregates all item sales for a table session into a single consolidated bill for printing |
+| `startDay(date?)` | `modules/admin/sales/actions.ts` | Opens or reopens a business day session |
+| `endDay()` | `modules/admin/sales/actions.ts` | Closes active business day (`ended_at = NOW()`) |
+| `getActiveBusinessDay()` | `modules/admin/sales/queries.ts` | Returns currently open `business_days` row or `null` |
+| `createSale()` | `modules/admin/sales/actions.ts` | Inserts sale header & items under active business day |
+| `settleTableBill()` | `modules/admin/sales/actions.ts` | Sets `table_billed_at = NOW()` to settle customer table session |
+| `getLiveTablesStatus()` | `modules/admin/sales/queries.ts` | Drives live green table monitor with unbilled totals |
+| `getTableConsolidatedBill()` | `modules/admin/sales/queries.ts` | Aggregates all table session items into one consolidated printable bill |
 
 ---
 
-## Auth traps
+## Auth Traps
 
-Google = owner. Email+password = staff (`createStaff` + service role).
-Keep the Email provider **on**. Public signup **off**.
-`homeForRole()` redirects all authenticated staff to `/admin` (Quick Sale).
-
-- **`proxy.ts` must let `/admin/auth/*` through.** The callback arrives with no session. Gating it makes Google look like a Supabase failure.
-- Google's redirect URI is **Supabase's**: `https://hoxifrmqlrjdloyeaaed.supabase.co/auth/v1/callback`. Ours (`/admin/auth/callback`) must be in Auth → URL Configuration → Redirect URLs.
-- Callback errors are **codes**, not sentences (`login-errors.ts`).
-- `adminDestination()` in `session.ts` is the only open-redirect check.
+- Google OAuth for owner; email + password for staff (`createStaff` via service role).
+- Keep Email provider **ON**. Public signup **OFF**. All staff redirect to `/admin`.
+- Google redirect URI points to Supabase (`https://hoxifrmqlrjdloyeaaed.supabase.co/auth/v1/callback`).
+- App callback (`/admin/auth/callback`) must be allowed in Supabase Redirect URLs.
+- `src/proxy.ts` must allow `/admin/auth/*` through without session.
 
 ---
 
-## Code map
+## Code Map
 
 ```
 src/
   proxy.ts                              /admin gate + cookie refresh
   app/
-    layout.tsx                          document shell
-    (public)/                           3 pages — no /admin links
+    (public)/                           Public pages: /, /menu, /contact (no admin links)
     (admin)/admin/
-      login/, no-access/                ungated
-      auth/callback/route.ts            ungated on purpose
-      (app)/layout.tsx                  requireStaff() + AdminShell
-      (app)/                            Quick Sale main screen (mandatory table/takeaway selector)
-      (app)/tables/                     Dining tables CRUD & live green table monitor (🟢 LIVE)
-      (app)/history/                    Sales history with expandable details, table filters, & reprint
-      (app)/reports/                    Counter-sale reports (revenue, tickets, hourly, best sellers)
-      (app)/menu/                       Category & dish management
-      (print)/receipt/[saleId]/         Printable thermal receipt view for single sale
-      (print)/table-receipt/[tableId]/  Printable consolidated thermal table receipt for full table bill
+      login/, no-access/                Ungated
+      auth/callback/route.ts            OAuth exchange
+      (app)/layout.tsx                  Staff check + AdminShell (with DayControls)
+      (app)/page.tsx                    Quick Sale POS screen
+      (app)/tables/                     Dining tables CRUD & live green monitor
+      (app)/history/                    Sales history log (defaults to active day)
+      (app)/reports/                    Revenue, tickets, hourly, & top items
+      (app)/menu/                       Menu category & dish management
+      (print)/receipt/[saleId]/         Thermal receipt (single sale)
+      (print)/table-receipt/[tableId]/  Consolidated thermal receipt (full table bill)
   modules/admin/
-    auth/                               session, login helpers, requireStaff/requireManager
-    sales/                              actions (createSale, settleTableBill), queries (getLiveTablesStatus, getTableConsolidatedBill, getSalesHistory)
-    menu/                               menu CRUD actions
-    tables/                             dining table CRUD actions (createTable, updateTable, toggleTableActive, deleteTable)
-    reports/                            reporting queries
-    audit/                              audit log
-    components/                         AdminShell, nav-items, ActionForm, Popover, realtime-refresh
-    lib/                                action-result helpers (guarded, actor, managerActor)
-  modules/public/                       public-only UI (hero, ocean, header/footer)
-  shared/                               supabase, database.ts, lib, ui, config
+    components/day-controls.tsx         Interactive Start Day / End Day modals & indicators
+    sales/                              actions.ts, queries.ts, components/quick-sale-view.tsx
+    tables/                             actions.ts (table CRUD)
+    menu/                               actions.ts (dish/category CRUD)
+    reports/                            queries.ts, range.ts
+    auth/                               session.ts, actions.ts
 ```
-
-Keep: every server action returns `ActionResult` via `guarded()`; forms use `<ActionForm>`; confirmations live in `<Popover>`; report state lives in the URL.

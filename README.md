@@ -1,32 +1,45 @@
 # MINAR SEA FOOD
 
-Counter-sale till, dining table billing system, and public site for **Minar Sea Food** (Charminar, Hyderabad).
+Counter-sale POS register, dining table billing system, and public website for **Minar Sea Food** (Charminar, Hyderabad).
 
-> **Important Docs:** Read [`PROJECT.md`](PROJECT.md) for full project brief & workflow. Read [`HANDOVER.md`](HANDOVER.md) for database & engineering traps.
+> **Documentation:**  
+> - [`PROJECT.md`](PROJECT.md) — Product requirements, operational workflows, and architecture.  
+> - [`HANDOVER.md`](HANDOVER.md) — Database schema, migration order, invariants, and gotchas.
 
 ---
 
 ## 🌟 Key Features
 
-1. **Public Site** (`/`, `/menu`, `/contact`):
-   - Fast, mobile-responsive menu, cooking philosophy, restaurant details, map directions, and WhatsApp ordering link. No login link on public site.
+### 1. Manual Business Day Sessions
+- **Start / End Day Controls**: Header controls allow managers to manually open and close the store trading day.
+- **Strict Sale Protection**: Prevents off-hours punches; binds daily resetting sale numbers (`#1`, `#2`, ...) to the active session.
 
-2. **Counter Till & Table Billing System** (`/admin`):
-   - **Quick Sale Till**: Touch-friendly menu grid with category pills, cart sidebar, and cash charging.
-   - **Mandatory Order Type Selector**: Cashier MUST pick either **🛍️ Takeaway** or **🍽️ Table Number** before charging each item sale.
-   - **Live Green Tables (`🟢 LIVE`)**: Active tables with open orders turn **GREEN** across the app with live unbilled totals.
-   - **Consolidated Table Bill**: Print a single aggregated receipt for a table session (`/admin/table-receipt/[tableId]`).
-   - **Table Settlement**: Printing or settling a table bill clears the table back to standard available state (`⚪ Available`).
-   - **Sales History**: Expandable sales log with table search filter and single receipt reprint.
+### 2. Quick Sale POS Till (`/admin`)
+- **Fast Touch Grid**: Categories with permanent `<` and `>` arrow buttons, mouse-wheel horizontal scrolling, and touch drag.
+- **Mandatory Order Type**: Select **Takeaway** or **Table Number** before charging cash.
+- **Instant Receipt Printing**: One-click thermal receipt popup upon charging.
+
+### 3. Dining Table Billing & Live Monitoring (`/admin/tables`)
+- **Live Green Tables (`🟢 LIVE`)**: Tables with open unbilled orders turn green across the app with live unbilled totals.
+- **Consolidated Table Bill**: Prints a single aggregated customer bill grouping all item orders from the session (`/admin/table-receipt/[tableId]`).
+- **One-Click Settlement**: Settles the session (`table_billed_at = NOW()`), resetting table to available (`⚪ Available`).
+
+### 4. Sales History & Reports
+- **Sales History (`/admin/history`)**: Filter by date and table, expandable item breakdown, and instant reprint.
+- **Daily Reports (`/admin/reports`)**: Revenue cards, hourly sales distribution, and top-selling dishes.
+
+### 5. Public Website (`/`, `/menu`, `/contact`)
+- Fast, mobile-first design with night-kitchen aesthetics, live database menu, Google Maps pin, and WhatsApp ordering link. (No admin links).
 
 ---
 
 ## 🚀 Quick Start
 
 ```bash
-npm run dev        # Starts dev server on http://localhost:3000
-npm run build      # Verifies production build & TypeScript types
+npm run dev        # Starts local development server on http://localhost:3000
+npm run build      # Production build check
+npm run typecheck  # TypeScript validation
 ```
 
-- **Live site:** https://minarseafood.com
-- **Staff Till:** https://minarseafood.com/admin/login
+- **Production:** https://minarseafood.com  
+- **Staff Till:** https://minarseafood.com/admin/login  
