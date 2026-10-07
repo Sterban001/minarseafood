@@ -172,7 +172,7 @@ export function DailyItemsTab({
                     id={`unit_price_${formId}`}
                     name="unit_price"
                     type="number"
-                    step="0.5"
+                    step="0.01"
                     min="0.01"
                     value={unitPrice}
                     onChange={(e) => setUnitPrice(e.target.value)}
