@@ -1,8 +1,9 @@
 import type { Metadata } from "next";
 import Link from "next/link";
-import { ChevronLeft, ChevronRight } from "lucide-react";
+import { ChevronLeft, ChevronRight, Printer } from "lucide-react";
 
 import { PageHeader } from "@/modules/admin/components/admin-shell";
+import { getDailyExpensesData } from "@/modules/admin/expenses/queries";
 import { SalesHistoryView } from "@/modules/admin/sales/components/sales-history-view";
 import { getActiveBusinessDay, getSaleDetail, getSalesHistory, type SaleDetail } from "@/modules/admin/sales/queries";
 import { addDays, formatBusinessDate, isValidIsoDate, todayBusinessDate } from "@/shared/lib/dates";
@@ -24,7 +25,10 @@ export default async function HistoryPage({
   const next = addDays(date, 1);
   const isToday = date === defaultDate;
 
-  const sales = await getSalesHistory(date);
+  const [sales, expensesData] = await Promise.all([
+    getSalesHistory(date),
+    getDailyExpensesData(date),
+  ]);
 
   // Pre-fetch details for all sales so the expandable view doesn't need client fetching.
   const detailEntries = await Promise.all(
@@ -40,6 +44,8 @@ export default async function HistoryPage({
   );
 
   const totalRevenue = sales.reduce((sum, s) => sum + Number(s.total), 0);
+  const totalExpenses = expensesData.totals.grandTotal;
+  const netDailySale = totalRevenue - totalExpenses;
 
   return (
     <div>
@@ -65,20 +71,40 @@ export default async function HistoryPage({
           </span>
         }
         actions={
-          sales.length > 0 ? (
-            <div className="flex items-center gap-4 text-sm text-slate-600">
-              <span>
+          <div className="flex flex-wrap items-center gap-2 text-xs sm:text-sm">
+            {sales.length > 0 ? (
+              <span className="text-slate-600">
                 <strong className="text-slate-900">{sales.length}</strong>{" "}
                 {sales.length === 1 ? "sale" : "sales"}
               </span>
-              <span>
-                Total{" "}
-                <strong className="text-slate-900 tabular-nums">
-                  ₹{totalRevenue.toLocaleString("en-IN")}
-                </strong>
+            ) : null}
+            <span className="rounded-md bg-slate-100 px-2 py-1 text-slate-700">
+              Gross: <strong className="text-slate-900 tabular-nums">₹{totalRevenue.toLocaleString("en-IN")}</strong>
+            </span>
+            {totalExpenses > 0 ? (
+              <span className="rounded-md border border-red-100 bg-red-50 px-2 py-1 text-red-700">
+                Expenses: <strong className="tabular-nums">-₹{totalExpenses.toLocaleString("en-IN")}</strong>
               </span>
-            </div>
-          ) : undefined
+            ) : null}
+            <span
+              className={`rounded-md border px-2.5 py-1 font-semibold ${
+                netDailySale >= 0
+                  ? "border-emerald-200 bg-emerald-50 text-emerald-800"
+                  : "border-red-200 bg-red-50 text-red-800"
+              }`}
+            >
+              Net Sale: <strong className="tabular-nums">₹{netDailySale.toLocaleString("en-IN")}</strong>
+            </span>
+            <Link
+              href={`/admin/daily-report?from=${date}&to=${date}`}
+              target="_blank"
+              className="inline-flex items-center gap-1 rounded-md border border-slate-300 bg-white px-2.5 py-1 text-xs font-semibold text-slate-700 shadow-2xs transition-colors hover:bg-slate-50 hover:text-slate-900"
+              title="Print daily financial audit report"
+            >
+              <Printer className="size-3.5 text-slate-600" />
+              <span>Print Day</span>
+            </Link>
+          </div>
         }
       />
 

@@ -181,6 +181,7 @@ export async function getExpensesReport(range: DateRange): Promise<{
   totals: ExpenseTotals;
   daily: DailyExpensePoint[];
   categories: ExpenseCategoryRow[];
+  expenses: Expense[];
 }> {
   const supabase = await createServerSupabase();
 
@@ -203,6 +204,7 @@ export async function getExpensesReport(range: DateRange): Promise<{
         othersTotal: 0,
       })),
       categories: [],
+      expenses: [],
     };
   }
 
@@ -290,6 +292,7 @@ export async function getExpensesReport(range: DateRange): Promise<{
     },
     daily,
     categories,
+    expenses,
   };
 }
 

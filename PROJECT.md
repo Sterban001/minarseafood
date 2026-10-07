@@ -75,6 +75,7 @@ One Next.js app, two isolated halves sharing only Supabase client and types:
 /admin/menu                   Category & dish CRUD + availability toggles
 /admin/receipt/[saleId]       Printable thermal receipt (single sale)
 /admin/table-receipt/[tableId] Printable consolidated thermal receipt (full table bill)
+/admin/daily-report           Printable daily & period financial audit report (expenses canceled from total sales)
 ```
 
 ---

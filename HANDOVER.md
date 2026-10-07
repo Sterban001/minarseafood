@@ -100,6 +100,7 @@ src/
       (app)/menu/                       Menu category & dish management
       (print)/receipt/[saleId]/         Thermal receipt (single sale)
       (print)/table-receipt/[tableId]/  Consolidated thermal receipt (full table bill)
+      (print)/daily-report/             Printable daily financial audit report (sales less expenses)
   modules/admin/
     components/day-controls.tsx         Interactive Start Day / End Day modals & indicators
     sales/                              actions.ts, queries.ts, components/quick-sale-view.tsx
