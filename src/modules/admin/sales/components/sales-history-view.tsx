@@ -166,12 +166,19 @@ export function SalesHistoryView({ sales, details }: Props) {
                   <p className="text-sm font-semibold text-slate-900">
                     Sale #{sale.sale_no}
                     {sale.table_label ? (
-                      <span className="ml-1.5 rounded bg-brand-50 px-1.5 py-0.5 text-xs font-medium text-brand-700">
-                        Table {sale.table_label}
-                      </span>
+                      sale.table_label.toLowerCase().includes("takeaway") ||
+                      sale.table_label.toLowerCase().startsWith("tk") ? (
+                        <span className="ml-1.5 rounded bg-amber-50 px-1.5 py-0.5 text-xs font-medium text-amber-700">
+                          🛍️ {sale.table_label}
+                        </span>
+                      ) : (
+                        <span className="ml-1.5 rounded bg-brand-50 px-1.5 py-0.5 text-xs font-medium text-brand-700">
+                          Table {sale.table_label}
+                        </span>
+                      )
                     ) : (
                       <span className="ml-1.5 rounded bg-amber-50 px-1.5 py-0.5 text-xs font-medium text-amber-700">
-                        Takeaway
+                        🛍️ Takeaway
                       </span>
                     )}
                   </p>
@@ -314,7 +321,10 @@ export function SalesHistoryView({ sales, details }: Props) {
               <div className="flex items-center justify-between font-medium">
                 <span className="text-slate-700">
                   {saleToDelete.table_label
-                    ? `Table ${saleToDelete.table_label}`
+                    ? saleToDelete.table_label.toLowerCase().includes("takeaway") ||
+                      saleToDelete.table_label.toLowerCase().startsWith("tk")
+                      ? `🛍️ ${saleToDelete.table_label}`
+                      : `Table ${saleToDelete.table_label}`
                     : "🛍️ Takeaway"}
                 </span>
                 <span className="text-sm font-bold text-slate-900 tabular-nums">

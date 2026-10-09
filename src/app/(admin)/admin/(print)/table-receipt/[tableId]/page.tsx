@@ -9,7 +9,9 @@ import { fullAddress, restaurant } from "@/shared/config/restaurant";
 import { formatBusinessDate, formatTime } from "@/shared/lib/dates";
 import { formatAmount, formatMoney } from "@/shared/lib/money";
 
-export const metadata: Metadata = { title: "Table Bill — Consolidated" };
+import { cn } from "@/shared/ui/cn";
+
+export const metadata: Metadata = { title: "Consolidated Bill" };
 
 export default async function TableReceiptPage({
   params,
@@ -25,6 +27,10 @@ export default async function TableReceiptPage({
   if (!bill) notFound();
 
   const { table, businessDate, salesCount, saleNumbers, items, total, firstSaleTime, lastSaleTime } = bill;
+  const isTakeaway =
+    table.zone === "Takeaway" ||
+    table.label.toLowerCase().includes("takeaway") ||
+    table.label.toLowerCase().startsWith("tk");
 
   return (
     <div className="mx-auto max-w-sm px-4 print:max-w-none print:px-0">
@@ -68,13 +74,29 @@ export default async function TableReceiptPage({
           </h1>
           <p className="mt-1 text-[0.7rem] leading-snug text-slate-500">{fullAddress}</p>
           <p className="text-[0.7rem] text-slate-500">{restaurant.phone}</p>
-          <div className="mt-2 inline-block rounded-md bg-brand-50 px-2 py-0.5 text-xs font-bold text-brand-800 uppercase tracking-wide">
-            Table {table.label} — Consolidated Bill
+          <div
+            className={cn(
+              "mt-2 inline-block rounded-md px-2 py-0.5 text-xs font-bold uppercase tracking-wide",
+              isTakeaway
+                ? "bg-amber-100 text-amber-900 ring-1 ring-amber-300"
+                : "bg-brand-50 text-brand-800"
+            )}
+          >
+            {isTakeaway
+              ? `🛍️ ${table.label} — Consolidated Bill`
+              : `Table ${table.label} — Consolidated Bill`}
           </div>
         </header>
 
         <div className="mt-3 border-y border-dashed border-slate-300 py-2 text-[0.72rem] text-slate-700">
-          <Line label="Table" value={`${table.label} (${table.zone})`} />
+          {isTakeaway ? (
+            <>
+              <Line label="Order Type" value="🛍️ Takeaway" />
+              <Line label="Takeaway Slot" value={table.label} />
+            </>
+          ) : (
+            <Line label="Table" value={`${table.label} (${table.zone})`} />
+          )}
           <Line label="Sales Date" value={formatBusinessDate(businessDate)} />
           {salesCount > 0 ? (
             <>
@@ -88,13 +110,16 @@ export default async function TableReceiptPage({
               ) : null}
             </>
           ) : (
-            <Line label="Status" value="No orders placed today" />
+            <Line
+              label="Status"
+              value={isTakeaway ? "No takeaway orders placed today" : "No orders placed today"}
+            />
           )}
         </div>
 
         {items.length === 0 ? (
           <div className="my-6 text-center text-xs text-slate-500">
-            No items have been ordered for Table {table.label} today.
+            No items have been ordered for {isTakeaway ? table.label : `Table ${table.label}`} today.
           </div>
         ) : (
           <>

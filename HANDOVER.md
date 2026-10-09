@@ -25,6 +25,7 @@ Read `PROJECT.md` first for state, routes, and workflow. This file covers traps 
 5. `20261002_sale_table_billed_at.sql` — Adds `sales.table_billed_at` TIMESTAMPTZ
 6. `20261005_manual_business_day.sql` — Adds `business_days` table, active index, & triggers
 7. `20261006_expenses.sql` — Adds `expenses` table, calculation triggers, & `v_daily_expenses_summary`
+8. `20261010_takeaway_tables.sql` — Seeds takeaway slots in `dining_tables` for Takeaway Consolidated Billing
 
 ### Critical Invariants (Must Not Break)
 
@@ -36,9 +37,9 @@ Read `PROJECT.md` first for state, routes, and workflow. This file covers traps 
    - `createSale()` and `settleTableBill()` query `getActiveBusinessDay()` and bind `business_date`.
    - `startDay()` reopens a closed day if started again for the same date.
 4. **Daily Resetting Sale Numbers:** `sale_no` restarts per business date under advisory transaction lock (`trg_assign_sale_no`, `SECURITY DEFINER`).
-5. **Table Live Status & Settlement:**
-   - Table is **🟢 LIVE** if it has sales where `business_date = activeDay AND table_id = table.id AND table_billed_at IS NULL`.
-   - `settleTableBill(tableId)` sets `table_billed_at = NOW()`, clearing the table back to `⚪ Available`.
+5. **Table & Takeaway Live Status & Settlement:**
+   - Table/takeaway slot is **🟢 LIVE** if it has sales where `business_date = activeDay AND table_id = table.id AND table_billed_at IS NULL`.
+   - `settleTableBill(tableId)` sets `table_billed_at = NOW()`, clearing the table or takeaway slot back to `⚪ Available`.
 6. **Security Invoker Views:** Reporting views (`v_counter_sales_daily`, `v_counter_sales_by_item`, `v_counter_sales_hourly`, `v_daily_expenses_summary`) run with `security_invoker = true`.
 
 ### Database Triggers & Functions
@@ -99,7 +100,8 @@ src/
       (app)/reports/                    Financial P&L, revenue, expenses, net profit, top items & categories
       (app)/menu/                       Menu category & dish management
       (print)/receipt/[saleId]/         Thermal receipt (single sale)
-      (print)/table-receipt/[tableId]/  Consolidated thermal receipt (full table bill)
+      (print)/table-receipt/[tableId]/  Consolidated thermal receipt (full table or takeaway bill)
+      (print)/takeaway-receipt/[tableId]/ Consolidated thermal receipt alias for takeaway
       (print)/daily-report/             Printable daily financial audit report (sales less expenses)
   modules/admin/
     components/day-controls.tsx         Interactive Start Day / End Day modals & indicators

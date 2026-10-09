@@ -93,21 +93,61 @@ export async function getMenuForSale(): Promise<CategoryWithItems[]> {
 }
 
 // ---------------------------------------------------------------------------
-// Dining tables for the table selector
+// Dining tables & Takeaway slots for the selector
 // ---------------------------------------------------------------------------
 
 /**
- * Fetches all active dining tables, ordered by sort_order.
+ * Ensures default Takeaway slots exist in dining_tables for Takeaway Consolidated Billing.
+ */
+export async function ensureTakeawayTables(): Promise<void> {
+  try {
+    const { hasServiceRoleKey, createAdminSupabase } = await import("@/shared/supabase/admin");
+    const supabase = hasServiceRoleKey() ? createAdminSupabase() : await createServerSupabase();
+
+    const { data: existing } = await supabase
+      .from("dining_tables")
+      .select("id")
+      .eq("zone", "Takeaway")
+      .limit(1);
+
+    if (!existing || existing.length === 0) {
+      const defaults = [
+        { label: "Takeaway 1", seats: 1, zone: "Takeaway", sort_order: 101, is_active: true },
+        { label: "Takeaway 2", seats: 1, zone: "Takeaway", sort_order: 102, is_active: true },
+        { label: "Takeaway 3", seats: 1, zone: "Takeaway", sort_order: 103, is_active: true },
+        { label: "Takeaway 4", seats: 1, zone: "Takeaway", sort_order: 104, is_active: true },
+        { label: "Takeaway 5", seats: 1, zone: "Takeaway", sort_order: 105, is_active: true },
+      ];
+      await supabase.from("dining_tables").insert(defaults);
+    }
+  } catch (err) {
+    console.warn("[ensureTakeawayTables]", err);
+  }
+}
+
+/**
+ * Fetches all active dining tables and takeaway slots, ordered by sort_order.
  */
 export async function getDiningTables(): Promise<DiningTable[]> {
   const supabase = await createServerSupabase();
 
-  const { data } = await supabase
+  let { data } = await supabase
     .from("dining_tables")
     .select("*")
     .eq("is_active", true)
     .order("sort_order")
     .order("label");
+
+  if (!data?.some((t) => t.zone === "Takeaway")) {
+    await ensureTakeawayTables();
+    const { data: refreshed } = await supabase
+      .from("dining_tables")
+      .select("*")
+      .eq("is_active", true)
+      .order("sort_order")
+      .order("label");
+    data = refreshed;
+  }
 
   return data ?? [];
 }

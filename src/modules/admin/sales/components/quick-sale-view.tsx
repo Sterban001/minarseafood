@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useRef, useState, useTransition } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState, useTransition } from "react";
 import Link from "next/link";
 import {
   AlertCircle,
@@ -13,6 +13,7 @@ import {
   Play,
   Plus,
   Printer,
+  ShoppingBag,
   ShoppingCart,
   Trash2,
   X,
@@ -46,6 +47,15 @@ export function QuickSaleView({
   const [result, setResult] = useState<CreateSaleResult | null>(null);
   const [validationError, setValidationError] = useState<string | null>(null);
   const [isPending, startTransition] = useTransition();
+
+  const dineInTables = useMemo(
+    () => tables.filter((t) => t.zone !== "Takeaway"),
+    [tables],
+  );
+  const takeawaySlots = useMemo(
+    () => tables.filter((t) => t.zone === "Takeaway"),
+    [tables],
+  );
 
   const categoriesRef = useRef<HTMLDivElement>(null);
   const [canScrollLeft, setCanScrollLeft] = useState(false);
@@ -132,13 +142,31 @@ export function QuickSaleView({
 
   const handleSelectTakeaway = () => {
     setOrderType("takeaway");
-    setSelectedTable(null);
+    setTablePickerOpen(false);
+    setValidationError(null);
+
+    // If selectedTable is not already a takeaway slot, default to first available takeaway slot
+    const isCurrentTakeaway = takeawaySlots.some((t) => t.id === selectedTable);
+    if (!isCurrentTakeaway && takeawaySlots.length > 0) {
+      const firstAvailable =
+        takeawaySlots.find((t) => !liveTables[t.id]?.isLive) ?? takeawaySlots[0];
+      setSelectedTable(firstAvailable?.id ?? null);
+    }
+  };
+
+  const handleSelectTakeawaySlot = (slotId: string) => {
+    setOrderType("takeaway");
+    setSelectedTable(slotId);
     setTablePickerOpen(false);
     setValidationError(null);
   };
 
   const handleSelectTableMode = () => {
     setOrderType("table");
+    const isCurrentTakeaway = takeawaySlots.some((t) => t.id === selectedTable);
+    if (isCurrentTakeaway) {
+      setSelectedTable(null);
+    }
     setTablePickerOpen(true);
     setValidationError(null);
   };
@@ -171,7 +199,7 @@ export function QuickSaleView({
 
     setValidationError(null);
     startTransition(async () => {
-      const res = await createSale(cart, orderType === "table" ? selectedTable : null);
+      const res = await createSale(cart, selectedTable);
       setResult(res);
       if (res.ok) {
         setCart([]);
@@ -189,8 +217,8 @@ export function QuickSaleView({
     setValidationError(null);
   };
 
-  // Group tables by zone for the picker
-  const tablesByZone = tables.reduce<Record<string, DiningTable[]>>((acc, t) => {
+  // Group dine-in tables by zone for the picker
+  const tablesByZone = dineInTables.reduce<Record<string, DiningTable[]>>((acc, t) => {
     (acc[t.zone] ??= []).push(t);
     return acc;
   }, {});
@@ -236,7 +264,11 @@ export function QuickSaleView({
   }
 
   const activeCat = categories.find((c) => c.id === activeCategory);
-  const isReadyToCharge = Boolean(activeDay) && cart.length > 0 && orderType !== null && (orderType === "takeaway" || Boolean(selectedTable));
+  const isReadyToCharge =
+    Boolean(activeDay) &&
+    cart.length > 0 &&
+    orderType !== null &&
+    (orderType === "takeaway" ? Boolean(selectedTable || takeawaySlots.length === 0) : Boolean(selectedTable));
 
   return (
     <div className="flex h-[calc(100dvh-8rem)] flex-col lg:h-[calc(100dvh-4rem)] lg:flex-row">
@@ -407,7 +439,13 @@ export function QuickSaleView({
             </span>
             {orderType ? (
               <span className="text-xs font-medium text-brand-700">
-                {orderType === "takeaway" ? "🛍️ Takeaway" : selectedTableObj ? `🍽️ Table ${selectedTableObj.label}` : "Select Table"}
+                {orderType === "takeaway"
+                  ? selectedTableObj
+                    ? `🛍️ ${selectedTableObj.label}`
+                    : "🛍️ Takeaway"
+                  : selectedTableObj
+                    ? `🍽️ Table ${selectedTableObj.label}`
+                    : "Select Table"}
               </span>
             ) : null}
           </div>
@@ -420,7 +458,7 @@ export function QuickSaleView({
               className={cn(
                 "flex items-center justify-center gap-1.5 rounded-lg border py-2 text-xs font-semibold transition-all",
                 orderType === "takeaway"
-                  ? "border-amber-400 bg-amber-50 text-amber-900 shadow-xs"
+                  ? "border-amber-400 bg-amber-50 text-amber-900 shadow-xs ring-1 ring-amber-400/40"
                   : "border-slate-200 bg-slate-50 text-slate-700 hover:bg-slate-100",
               )}
             >
@@ -433,21 +471,100 @@ export function QuickSaleView({
               className={cn(
                 "flex items-center justify-center gap-1.5 rounded-lg border py-2 text-xs font-semibold transition-all",
                 orderType === "table"
-                  ? "border-brand-400 bg-brand-50 text-brand-900 shadow-xs"
+                  ? "border-brand-400 bg-brand-50 text-brand-900 shadow-xs ring-1 ring-brand-400/40"
                   : "border-slate-200 bg-slate-50 text-slate-700 hover:bg-slate-100",
               )}
             >
-              🍽️ Table {selectedTableObj ? `(${selectedTableObj.label})` : ""}
+              🍽️ Table {selectedTableObj && orderType === "table" ? `(${selectedTableObj.label})` : ""}
             </button>
           </div>
 
-          {selectedTable ? (
-            <div className="flex items-center justify-between rounded-lg bg-brand-50/70 px-2.5 py-1.5 text-xs">
-              <span className="font-semibold text-brand-800">Table {selectedTableObj?.label}</span>
+          {/* Takeaway Slots Selector */}
+          {orderType === "takeaway" && takeawaySlots.length > 0 ? (
+            <div className="space-y-1.5 pt-1">
+              <div className="flex items-center justify-between text-[0.7rem] text-slate-500">
+                <span className="font-semibold text-slate-700">Takeaway Order Slot:</span>
+                <span className="text-[0.65rem] text-slate-400">🟢 = Live Unbilled</span>
+              </div>
+              <div className="grid grid-cols-5 gap-1.5">
+                {takeawaySlots.map((slot) => {
+                  const live = liveTables[slot.id];
+                  const isLive = Boolean(live?.isLive);
+                  const isSelected = selectedTable === slot.id;
+
+                  return (
+                    <button
+                      key={slot.id}
+                      type="button"
+                      onClick={() => handleSelectTakeawaySlot(slot.id)}
+                      className={cn(
+                        "flex flex-col items-center justify-center rounded-lg border py-1.5 px-1 text-center transition-all",
+                        isSelected
+                          ? "border-amber-500 bg-amber-500 text-white font-bold shadow-xs"
+                          : isLive
+                            ? "border-emerald-400 bg-emerald-100 text-emerald-950 font-bold shadow-xs hover:bg-emerald-200"
+                            : "border-slate-200 bg-slate-50 text-slate-700 hover:border-amber-300 hover:bg-amber-50/50",
+                      )}
+                    >
+                      <span className="text-[0.7rem] leading-tight">
+                        {slot.label.replace(/^Takeaway\s*/i, "TK ")}
+                      </span>
+                      {isLive ? (
+                        <span
+                          className={cn(
+                            "text-[0.6rem] font-black",
+                            isSelected ? "text-amber-100" : "text-emerald-700",
+                          )}
+                        >
+                          ₹{live.unbilledTotal}
+                        </span>
+                      ) : null}
+                    </button>
+                  );
+                })}
+              </div>
+
+              {selectedTableObj ? (
+                <div className="flex items-center justify-between rounded-lg bg-amber-50/90 border border-amber-200 px-2.5 py-1.5 text-xs">
+                  <div className="flex items-center gap-1.5 min-w-0">
+                    <ShoppingBag className="size-3.5 text-amber-700 shrink-0" />
+                    <span className="font-bold text-amber-950 truncate">
+                      🛍️ {selectedTableObj.label}
+                    </span>
+                    {liveTables[selectedTableObj.id]?.isLive ? (
+                      <span className="rounded-full bg-emerald-600 px-1.5 py-0.2 text-[0.65rem] font-bold text-white shadow-2xs">
+                        🟢 LIVE ({formatMoney(liveTables[selectedTableObj.id].unbilledTotal)})
+                      </span>
+                    ) : null}
+                  </div>
+                  <Link
+                    href={`/admin/table-receipt/${selectedTableObj.id}`}
+                    target="_blank"
+                    className="inline-flex items-center gap-1 font-semibold text-amber-800 hover:text-amber-950 hover:underline shrink-0"
+                  >
+                    <Printer className="size-3.5" />
+                    Print Full Bill
+                  </Link>
+                </div>
+              ) : null}
+            </div>
+          ) : null}
+
+          {/* Dine-In Table Selected Info */}
+          {orderType === "table" && selectedTable && selectedTableObj ? (
+            <div className="flex items-center justify-between rounded-lg bg-brand-50/70 border border-brand-200 px-2.5 py-1.5 text-xs">
+              <div className="flex items-center gap-1.5 min-w-0">
+                <span className="font-semibold text-brand-800 truncate">Table {selectedTableObj.label}</span>
+                {liveTables[selectedTable]?.isLive ? (
+                  <span className="rounded-full bg-emerald-600 px-1.5 py-0.2 text-[0.65rem] font-bold text-white shadow-2xs">
+                    🟢 LIVE ({formatMoney(liveTables[selectedTable].unbilledTotal)})
+                  </span>
+                ) : null}
+              </div>
               <Link
                 href={`/admin/table-receipt/${selectedTable}`}
                 target="_blank"
-                className="inline-flex items-center gap-1 font-semibold text-brand-700 hover:text-brand-900 hover:underline"
+                className="inline-flex items-center gap-1 font-semibold text-brand-700 hover:text-brand-900 hover:underline shrink-0"
               >
                 <Printer className="size-3.5" />
                 Print Full Table Bill
@@ -455,7 +572,7 @@ export function QuickSaleView({
             </div>
           ) : null}
 
-          {/* Table Picker Dropdown / Grid */}
+          {/* Table Picker Dropdown / Grid for Dine-In */}
           {orderType === "table" || tablePickerOpen ? (
             <div className="relative pt-1">
               <button
@@ -463,7 +580,7 @@ export function QuickSaleView({
                 onClick={() => setTablePickerOpen(!tablePickerOpen)}
                 className={cn(
                   "flex w-full items-center justify-between gap-2 rounded-lg border px-3 py-2 text-left text-xs transition-all",
-                  selectedTable
+                  selectedTable && orderType === "table"
                     ? "border-brand-300 bg-brand-50 font-semibold text-brand-800"
                     : "border-amber-300 bg-amber-50/50 text-amber-800 font-medium",
                 )}
@@ -471,7 +588,7 @@ export function QuickSaleView({
                 <div className="flex items-center gap-2 truncate">
                   <MapPin className="size-3.5 shrink-0" />
                   <span>
-                    {selectedTableObj
+                    {selectedTableObj && orderType === "table"
                       ? `Table ${selectedTableObj.label} (${selectedTableObj.zone})`
                       : "Tap to select table number *"}
                   </span>
@@ -486,9 +603,9 @@ export function QuickSaleView({
 
               {tablePickerOpen ? (
                 <div className="absolute left-0 right-0 top-full z-30 mt-1.5 max-h-64 overflow-y-auto rounded-xl border border-slate-200 bg-white p-2 shadow-xl">
-                  {tables.length === 0 ? (
+                  {dineInTables.length === 0 ? (
                     <p className="p-2 text-center text-xs text-slate-500">
-                      No active tables configured. Go to Admin &gt; Tables to add tables.
+                      No active dine-in tables configured. Go to Admin &gt; Tables to add tables.
                     </p>
                   ) : (
                     Object.entries(tablesByZone).map(([zone, zoneTables]) => (

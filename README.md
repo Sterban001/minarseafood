@@ -19,10 +19,10 @@ Counter-sale POS register, dining table billing system, and public website for *
 - **Mandatory Order Type**: Select **Takeaway** or **Table Number** before charging cash.
 - **Instant Receipt Printing**: One-click thermal receipt popup upon charging.
 
-### 3. Dining Table Billing & Live Monitoring (`/admin/tables`)
-- **Live Green Tables (`🟢 LIVE`)**: Tables with open unbilled orders turn green across the app with live unbilled totals.
-- **Consolidated Table Bill**: Prints a single aggregated customer bill grouping all item orders from the session (`/admin/table-receipt/[tableId]`).
-- **One-Click Settlement**: Settles the session (`table_billed_at = NOW()`), resetting table to available (`⚪ Available`).
+### 3. Dining Table & Takeaway Billing & Live Monitoring (`/admin/tables`)
+- **Live Green Tables & Takeaways (`🟢 LIVE`)**: Tables and takeaway order slots with open unbilled orders turn green across the app with live unbilled totals.
+- **Consolidated Table & Takeaway Bills**: Prints a single aggregated customer bill grouping all item orders from the session (`/admin/table-receipt/[tableId]`, `/admin/takeaway-receipt/[tableId]`), with an explicit Takeaway designation line for parcel orders.
+- **One-Click Settlement**: Settles the session (`table_billed_at = NOW()`), resetting table or takeaway slot to available (`⚪ Available`).
 
 ### 4. Sales History & Financial Reports
 - **Sales History (`/admin/history`)**: Filter by date and table, expandable item breakdown, and instant reprint.

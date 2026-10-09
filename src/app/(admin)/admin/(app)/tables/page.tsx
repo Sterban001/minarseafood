@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 import Link from "next/link";
-import { Eye, EyeOff, MapPin, Pencil, Plus, Printer, Trash2 } from "lucide-react";
+import { Eye, EyeOff, MapPin, Pencil, Plus, Printer, ShoppingBag, Trash2 } from "lucide-react";
 
 import { ActionForm } from "@/modules/admin/components/action-form";
 import { PageHeader } from "@/modules/admin/components/admin-shell";
@@ -18,16 +18,17 @@ import { Field, Input, Select } from "@/shared/ui/form";
 import { SubmitButton } from "@/shared/ui/submit-button";
 import { Badge, Card, CardHeader, EmptyState } from "@/shared/ui/surface";
 
-import { getLiveTablesStatus, type LiveTableInfo } from "@/modules/admin/sales/queries";
+import { ensureTakeawayTables, getLiveTablesStatus, type LiveTableInfo } from "@/modules/admin/sales/queries";
 import { formatMoney } from "@/shared/lib/money";
 import { cn } from "@/shared/ui/cn";
 
-export const metadata: Metadata = { title: "Tables — Minar Sea Food" };
+export const metadata: Metadata = { title: "Tables & Takeaways — Minar Sea Food" };
 
-const ZONES = ["Main Hall", "AC Hall", "Family Rooms", "Rooftop"];
+const ZONES = ["Main Hall", "AC Hall", "Family Rooms", "Rooftop", "Takeaway"];
 
 export default async function TablesAdminPage() {
   await requireManager();
+  await ensureTakeawayTables();
   const supabase = await createServerSupabase();
 
   const [tablesRes, liveMap] = await Promise.all([
@@ -44,6 +45,8 @@ export default async function TablesAdminPage() {
   const allTables = tablesRes.data ?? [];
   const active = allTables.filter((t) => t.is_active).length;
   const liveCount = Object.keys(liveMap).length;
+  const liveDineIn = allTables.filter((t) => t.zone !== "Takeaway" && liveMap[t.id]?.isLive).length;
+  const liveTakeaway = allTables.filter((t) => t.zone === "Takeaway" && liveMap[t.id]?.isLive).length;
   const inactive = allTables.length - active;
 
   // Group by zone
@@ -55,13 +58,18 @@ export default async function TablesAdminPage() {
   return (
     <div>
       <PageHeader
-        title="Tables"
+        title="Tables & Takeaways"
         subtitle={
           <span>
             <strong className="text-slate-900">{active}</strong> active
-            {liveCount > 0 ? (
+            {liveDineIn > 0 ? (
               <span className="ml-2 font-semibold text-emerald-600">
-                · 🟢 {liveCount} Live {liveCount === 1 ? "table" : "tables"}
+                · 🟢 {liveDineIn} Live {liveDineIn === 1 ? "table" : "tables"}
+              </span>
+            ) : null}
+            {liveTakeaway > 0 ? (
+              <span className="ml-2 font-semibold text-amber-700">
+                · 🛍️ {liveTakeaway} Live {liveTakeaway === 1 ? "takeaway" : "takeaways"}
               </span>
             ) : null}
             {inactive > 0 ? (
@@ -72,7 +80,7 @@ export default async function TablesAdminPage() {
           </span>
         }
         actions={
-          <Popover label={<><Plus className="size-4" /> Add Table</>} align="right">
+          <Popover label={<><Plus className="size-4" /> Add Table / Slot</>} align="right">
             <ActionForm action={createTable} announceSuccess className="space-y-3">
               <Field label="Label" htmlFor="label" required>
                 <Input
@@ -158,6 +166,10 @@ function TableCard({
   liveInfo?: LiveTableInfo;
 }) {
   const isLive = Boolean(liveInfo?.isLive);
+  const isTakeaway =
+    table.zone === "Takeaway" ||
+    table.label.toLowerCase().includes("takeaway") ||
+    table.label.toLowerCase().startsWith("tk");
 
   return (
     <div
@@ -165,9 +177,11 @@ function TableCard({
         "relative flex flex-col justify-between rounded-xl border p-3.5 transition-all shadow-xs",
         isLive
           ? "border-emerald-500 bg-emerald-50/90 ring-2 ring-emerald-500/25 shadow-md"
-          : table.is_active
-            ? "border-slate-200 bg-white"
-            : "border-slate-200 bg-slate-50 opacity-50",
+          : isTakeaway
+            ? "border-amber-200/80 bg-amber-50/30"
+            : table.is_active
+              ? "border-slate-200 bg-white"
+              : "border-slate-200 bg-slate-50 opacity-50",
       )}
     >
       <div className="flex items-start gap-3">
@@ -176,10 +190,12 @@ function TableCard({
             "flex size-10 shrink-0 items-center justify-center rounded-lg font-bold transition-all",
             isLive
               ? "bg-emerald-600 text-white shadow-xs animate-pulse"
-              : "bg-brand-50 text-brand-700",
+              : isTakeaway
+                ? "bg-amber-100 text-amber-800"
+                : "bg-brand-50 text-brand-700",
           )}
         >
-          <MapPin className="size-5" />
+          {isTakeaway ? <ShoppingBag className="size-5" /> : <MapPin className="size-5" />}
         </div>
         <div className="min-w-0 flex-1">
           <div className="flex items-center gap-1.5">
@@ -191,7 +207,9 @@ function TableCard({
             ) : null}
           </div>
           <p className="text-xs text-slate-500">
-            {table.seats} {table.seats === 1 ? "seat" : "seats"} · {table.zone}
+            {isTakeaway
+              ? "Counter Takeaway Slot"
+              : `${table.seats} ${table.seats === 1 ? "seat" : "seats"} · ${table.zone}`}
           </p>
           {isLive && liveInfo ? (
             <p className="mt-1 text-xs font-bold text-emerald-800 tabular-nums">
@@ -209,12 +227,14 @@ function TableCard({
           <Link
             href={`/admin/table-receipt/${table.id}`}
             target="_blank"
-            title={`Print full bill for Table ${table.label}`}
+            title={isTakeaway ? `Print full bill for ${table.label}` : `Print full bill for Table ${table.label}`}
             className={cn(
               "rounded-md p-1.5 transition-colors",
               isLive
                 ? "bg-emerald-600 text-white hover:bg-emerald-700"
-                : "text-slate-500 hover:bg-brand-50 hover:text-brand-700",
+                : isTakeaway
+                  ? "text-amber-700 hover:bg-amber-100"
+                  : "text-slate-500 hover:bg-brand-50 hover:text-brand-700",
             )}
           >
             <Printer className="size-4" />
@@ -317,7 +337,7 @@ function TableCard({
             className="inline-flex items-center gap-1.5 rounded-lg bg-emerald-600 px-3 py-1.5 text-xs font-bold text-white shadow-xs transition-colors hover:bg-emerald-700"
           >
             <Printer className="size-3.5" />
-            Print & Settle Table
+            {isTakeaway ? "Print & Settle Takeaway" : "Print & Settle Table"}
           </Link>
 
           <form

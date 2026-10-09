@@ -20,6 +20,10 @@ export default async function ReceiptPage({
   if (!detail) notFound();
 
   const { sale, items } = detail;
+  const isTakeaway =
+    !sale.table_label ||
+    sale.table_label.toLowerCase().includes("takeaway") ||
+    sale.table_label.toLowerCase().startsWith("tk");
 
   return (
     <div className="mx-auto max-w-xs px-4 print:max-w-none print:px-0">
@@ -37,7 +41,11 @@ export default async function ReceiptPage({
       <div className="print-sheet rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
         <header className="border-b border-dashed border-slate-300 pb-2 text-center">
           <div className="text-2xl font-black tracking-tight text-slate-900 uppercase">
-            {sale.table_label ? `TABLE ${sale.table_label}` : "🛍️ TAKEAWAY"}
+            {isTakeaway
+              ? sale.table_label
+                ? `🛍️ ${sale.table_label.toUpperCase()}`
+                : "🛍️ TAKEAWAY"
+              : `TABLE ${sale.table_label}`}
           </div>
           <div className="mt-1 text-sm font-bold text-slate-700">
             Sale #{sale.sale_no}
@@ -45,6 +53,13 @@ export default async function ReceiptPage({
         </header>
 
         <div className="mt-2 border-b border-dashed border-slate-300 pb-2 text-[0.72rem] text-slate-700 space-y-0.5">
+          <Line label="Order Type" value={isTakeaway ? "🛍️ Takeaway" : "🍽️ Dine-In Table"} />
+          {sale.table_label ? (
+            <Line
+              label={isTakeaway ? "Takeaway Slot" : "Table"}
+              value={sale.table_label}
+            />
+          ) : null}
           <Line label="Date" value={formatBusinessDate(sale.business_date)} />
           <Line label="Time" value={formatTime(sale.created_at)} />
         </div>

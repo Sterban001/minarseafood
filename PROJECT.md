@@ -24,10 +24,10 @@ One Next.js app, two isolated halves sharing only Supabase client and types:
 | Manual Business Day | **Implemented 05 Oct 2026** — Manual Start Day / End Day session controls via header `<DayControls>`. Sales blocked when closed. Resetting sale numbers (`#1`, `#2`) tied to active day. |
 | Menu & Items | **Overhauled 05 Oct 2026** — 8 official categories, 27 dishes seeded from physical menu card (Starters/Dry, Gravies/Wet, Rotis, Fish Thali, Mandi, Extras, Ready-To-Fry, Beverages). |
 | POS Category Scroller | Fixed Left (`<`) / Right (`>`) arrows, mouse-wheel horizontal scrolling, touch drag. |
-| Counter & Table Billing | Mandatory Takeaway vs Table selector. Live green tables (`🟢 LIVE`), consolidated bills (`/admin/table-receipt/[tableId]`), instant settlement. |
+| Counter & Table/Takeaway Billing | Mandatory Takeaway vs Table selector. Live green tables & takeaways (`🟢 LIVE`), consolidated bills (`/admin/table-receipt/[tableId]`, `/admin/takeaway-receipt/[tableId]`), instant settlement. |
 | Expenses Management | **Implemented 06 Oct 2026** — 3 tabs: Daily Salaries Total, Itemized Daily Expenses (`qty * unit_price`), and Others (Miscellaneous). Real-time profit/burn cash balance against daily sales revenue. |
 | Financial Reports & P&L | **Updated 06 Oct 2026** — Consolidated Profit & Loss, Net Margin %, Day-by-Day Revenue vs Expenses curve, best-selling dishes, and top expense categories across custom date ranges. |
-| Database Migrations | 7 migrations in `supabase/migrations/` (schema, policies, counter sales, table link, table billed at, manual business days, expenses). |
+| Database Migrations | 8 migrations in `supabase/migrations/` (schema, policies, counter sales, table link, table billed at, manual business days, expenses, takeaway tables). |
 | Auth | Google OAuth (owner/super_admin) + Email/password (staff). Public signup off. All staff land on `/admin`. |
 | Deploy | Production on Vercel at `https://minarseafood.com`. |
 
@@ -43,13 +43,14 @@ One Next.js app, two isolated halves sharing only Supabase client and types:
    - Waiters collect cash per dish and pay the cashier.
    - Cashier punches item(s) in Quick Sale (`/admin`).
 3. **Mandatory Order Type**:
-   - Must select **🛍️ Takeaway** or **🍽️ Table Number** (e.g. T1, T2) before charging.
+   - Must select **🛍️ Takeaway** (slot Takeaway 1..5) or **🍽️ Table Number** (e.g. T1, T2) before charging.
    - Minted sale number resets daily (`#1`, `#2`, ...). One-click auto-print thermal receipt.
-4. **Live Green Table Indicator (`🟢 LIVE`)**:
-   - Tables with active unbilled sales turn **GREEN** on `/admin/tables` and table picker with unbilled total & order count.
-5. **Consolidated Table Bill & Settlement**:
-   - At meal end, cashier opens `/admin/table-receipt/[tableId]` to print all session items on one consolidated customer bill.
-   - Clicking **Mark Settled** sets `table_billed_at = NOW()`, clearing table back to `⚪ Available`.
+4. **Live Green Table & Takeaway Indicators (`🟢 LIVE`)**:
+   - Tables and takeaway slots with active unbilled sales turn **GREEN** on `/admin/tables` and Quick Sale drawer with unbilled total & order count.
+5. **Consolidated Table & Takeaway Bills & Settlement**:
+   - Cashier opens `/admin/table-receipt/[id]` (or `/admin/takeaway-receipt/[id]`) to print all session items on one consolidated bill.
+   - For takeaway bills, clearly specifies order type as Takeaway.
+   - Clicking **Mark Settled** sets `table_billed_at = NOW()`, clearing the table or takeaway slot back to `⚪ Available`.
 6. **Daily Expenses & Salaries Tracking**:
    - Cashier/manager logs daily staff wage payouts (Daily Salaries tab).
    - Cashier logs raw material supply purchases with item, quantity, and unit price (Daily Expenses tab).
