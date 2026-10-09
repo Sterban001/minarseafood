@@ -161,6 +161,9 @@ export type ExpenseTotals = {
   itemsTotal: number;
   othersTotal: number;
   count: number;
+  salariesCount: number;
+  itemsCount: number;
+  othersCount: number;
 };
 
 export type DailyExpensePoint = {
@@ -195,7 +198,16 @@ export async function getExpensesReport(range: DateRange): Promise<{
   if (error) {
     console.warn("[getExpensesReport]", error.message);
     return {
-      totals: { grandTotal: 0, salariesTotal: 0, itemsTotal: 0, othersTotal: 0, count: 0 },
+      totals: {
+        grandTotal: 0,
+        salariesTotal: 0,
+        itemsTotal: 0,
+        othersTotal: 0,
+        count: 0,
+        salariesCount: 0,
+        itemsCount: 0,
+        othersCount: 0,
+      },
       daily: eachDate(range.from, range.to).map((date) => ({
         date,
         grandTotal: 0,
@@ -213,6 +225,9 @@ export async function getExpensesReport(range: DateRange): Promise<{
   let salariesTotal = 0;
   let itemsTotal = 0;
   let othersTotal = 0;
+  let salariesCount = 0;
+  let itemsCount = 0;
+  let othersCount = 0;
 
   const byDate = new Map<
     string,
@@ -234,6 +249,7 @@ export async function getExpensesReport(range: DateRange): Promise<{
 
     if (e.expense_type === "salary") {
       salariesTotal += amt;
+      salariesCount += 1;
       dateEntry.salariesTotal += amt;
       const catKey = "Staff Salaries";
       const catEntry = byCat.get(catKey) ?? { amount: 0, count: 0 };
@@ -242,6 +258,7 @@ export async function getExpensesReport(range: DateRange): Promise<{
       byCat.set(catKey, catEntry);
     } else if (e.expense_type === "daily_item") {
       itemsTotal += amt;
+      itemsCount += 1;
       dateEntry.itemsTotal += amt;
       const catKey = e.category || "Kitchen Supplies";
       const catEntry = byCat.get(catKey) ?? { amount: 0, count: 0 };
@@ -250,6 +267,7 @@ export async function getExpensesReport(range: DateRange): Promise<{
       byCat.set(catKey, catEntry);
     } else {
       othersTotal += amt;
+      othersCount += 1;
       dateEntry.othersTotal += amt;
       const catKey = e.category || "Miscellaneous";
       const catEntry = byCat.get(catKey) ?? { amount: 0, count: 0 };
@@ -289,6 +307,9 @@ export async function getExpensesReport(range: DateRange): Promise<{
       itemsTotal: round2(itemsTotal),
       othersTotal: round2(othersTotal),
       count: expenses.length,
+      salariesCount,
+      itemsCount,
+      othersCount,
     },
     daily,
     categories,
