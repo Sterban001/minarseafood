@@ -26,6 +26,7 @@ Read `PROJECT.md` first for state, routes, and workflow. This file covers traps 
 6. `20261005_manual_business_day.sql` — Adds `business_days` table, active index, & triggers
 7. `20261006_expenses.sql` — Adds `expenses` table, calculation triggers, & `v_daily_expenses_summary`
 8. `20261010_takeaway_tables.sql` — Seeds takeaway slots in `dining_tables` for Takeaway Consolidated Billing
+9. `20261010_speed_indexes.sql` — Speed indexes on `sales(business_date)`, `sale_items(sale_id)`, and `sales(business_date, table_id)`
 
 ### Critical Invariants (Must Not Break)
 

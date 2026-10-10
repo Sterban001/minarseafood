@@ -18,7 +18,7 @@ import { Field, Input, Select } from "@/shared/ui/form";
 import { SubmitButton } from "@/shared/ui/submit-button";
 import { Badge, Card, CardHeader, EmptyState } from "@/shared/ui/surface";
 
-import { ensureTakeawayTables, getLiveTablesStatus, type LiveTableInfo } from "@/modules/admin/sales/queries";
+import { getLiveTablesStatus, type LiveTableInfo } from "@/modules/admin/sales/queries";
 import { formatMoney } from "@/shared/lib/money";
 import { cn } from "@/shared/ui/cn";
 
@@ -28,7 +28,6 @@ const ZONES = ["Main Hall", "AC Hall", "Family Rooms", "Rooftop", "Takeaway"];
 
 export default async function TablesAdminPage() {
   await requireManager();
-  await ensureTakeawayTables();
   const supabase = await createServerSupabase();
 
   const [tablesRes, liveMap] = await Promise.all([

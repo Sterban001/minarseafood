@@ -26,6 +26,7 @@ export function AdminSidebarNav() {
         <Link
           key={href}
           href={href}
+          prefetch={true}
           className={cn(
             "flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium transition-colors",
             isActive(href)
@@ -56,6 +57,7 @@ export function AdminBottomNav() {
           <li key={href}>
             <Link
               href={href}
+              prefetch={true}
               className={cn(
                 "flex flex-col items-center gap-1 py-2.5 text-xs font-medium",
                 isActive(href) ? "text-brand-700" : "text-slate-500",

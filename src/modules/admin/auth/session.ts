@@ -1,3 +1,4 @@
+import { cache } from "react";
 import { redirect } from "next/navigation";
 
 import { hasSupabaseEnv } from "@/shared/supabase/env";
@@ -20,8 +21,10 @@ export type StaffLookup =
  * Resolves the signed-in staff member. Distinguishes "not signed in" from
  * "signed in but switched off" so the shell can explain what happened instead
  * of bouncing someone between login and home in a loop.
+ *
+ * Wrapped in React cache to memoize across layout, pages, and actions in a single request.
  */
-export async function lookupStaff(): Promise<StaffLookup> {
+export const lookupStaff = cache(async function lookupStaff(): Promise<StaffLookup> {
   // Without keys there is no session to find, and the login screen explains why.
   if (!hasSupabaseEnv) return { state: "signed-out" };
 
@@ -49,7 +52,7 @@ export async function lookupStaff(): Promise<StaffLookup> {
     state: "ok",
     session: { userId: user.id, email: user.email ?? null, profile },
   };
-}
+});
 
 /** The caller must be active staff, or they get sent somewhere that explains why not. */
 export async function requireStaff(): Promise<StaffSession> {

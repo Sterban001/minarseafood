@@ -21,12 +21,24 @@ import {
 
 import { createSale, type CreateSaleResult, type SaleCartItem } from "@/modules/admin/sales/actions";
 import type { CategoryWithItems, LiveTableInfo } from "@/modules/admin/sales/queries";
+import { fullAddress, restaurant } from "@/shared/config/restaurant";
+import { formatBusinessDate, todayBusinessDate } from "@/shared/lib/dates";
+import { formatAmount, formatMoney } from "@/shared/lib/money";
 import type { BusinessDay, DiningTable } from "@/shared/types/database";
-import { formatMoney } from "@/shared/lib/money";
 import { Button } from "@/shared/ui/button";
 import { cn } from "@/shared/ui/cn";
 
 type CartLine = SaleCartItem & { lineTotal: number };
+
+type LastSaleReceipt = {
+  items: CartLine[];
+  saleNo: number;
+  tableLabel: string | null;
+  isTakeaway: boolean;
+  total: number;
+  businessDate: string;
+  time: string;
+};
 
 export function QuickSaleView({
   categories,
@@ -45,6 +57,7 @@ export function QuickSaleView({
   const [selectedTable, setSelectedTable] = useState<string | null>(null);
   const [tablePickerOpen, setTablePickerOpen] = useState(false);
   const [result, setResult] = useState<CreateSaleResult | null>(null);
+  const [lastSaleReceipt, setLastSaleReceipt] = useState<LastSaleReceipt | null>(null);
   const [validationError, setValidationError] = useState<string | null>(null);
   const [isPending, startTransition] = useTransition();
 
@@ -199,9 +212,26 @@ export function QuickSaleView({
 
     setValidationError(null);
     startTransition(async () => {
-      const res = await createSale(cart, selectedTable);
+      const currentCart = [...cart];
+      const currentSelectedTable = selectedTable;
+      const currentOrderType = orderType;
+      const tableObj = tables.find((t) => t.id === currentSelectedTable);
+      const tableLabel = tableObj?.label ?? (currentOrderType === "takeaway" ? "Takeaway" : null);
+      const isTakeaway = currentOrderType === "takeaway" || Boolean(tableObj?.zone === "Takeaway");
+      const currentTotal = total;
+
+      const res = await createSale(currentCart, currentSelectedTable);
       setResult(res);
       if (res.ok) {
+        setLastSaleReceipt({
+          items: currentCart,
+          saleNo: res.saleNo,
+          tableLabel,
+          isTakeaway,
+          total: currentTotal,
+          businessDate: activeDay?.date ?? todayBusinessDate(),
+          time: new Date().toLocaleTimeString("en-IN", { hour: "2-digit", minute: "2-digit", hour12: true }),
+        });
         setCart([]);
         setOrderType(null);
         setSelectedTable(null);
@@ -209,8 +239,18 @@ export function QuickSaleView({
     });
   };
 
+  useEffect(() => {
+    if (result?.ok && lastSaleReceipt) {
+      const timer = setTimeout(() => {
+        window.print();
+      }, 50);
+      return () => clearTimeout(timer);
+    }
+  }, [result?.ok, lastSaleReceipt]);
+
   const handleNewSale = () => {
     setResult(null);
+    setLastSaleReceipt(null);
     setCart([]);
     setOrderType(null);
     setSelectedTable(null);
@@ -223,43 +263,131 @@ export function QuickSaleView({
     return acc;
   }, {});
 
-  // Success state
+  // Success state with instant direct printing
   if (result?.ok) {
     return (
-      <div className="flex min-h-[60vh] flex-col items-center justify-center gap-6 px-4">
-        {/* Hidden iframe triggers automatic 1-click printing immediately when sale completes */}
-        <iframe
-          src={`/admin/receipt/${result.saleId}`}
-          className="hidden"
-          aria-hidden="true"
-        />
-        <div className="flex size-20 items-center justify-center rounded-full bg-emerald-100">
-          <Check className="size-10 text-emerald-600" strokeWidth={2.5} />
+      <>
+        {/* Printable thermal receipt rendered directly in DOM — fires instantly via window.print() */}
+        {lastSaleReceipt && (
+          <div className="hidden print:block print-sheet mx-auto max-w-sm">
+            <header className="text-center">
+              <h1 className="font-display text-xl font-semibold tracking-wide text-slate-900">
+                {restaurant.displayName}
+              </h1>
+              <p className="mt-1 text-[0.7rem] leading-snug text-slate-500">{fullAddress}</p>
+              <p className="text-[0.7rem] text-slate-500">{restaurant.phone}</p>
+              <div
+                className={cn(
+                  "mt-2 inline-block rounded-md px-2 py-0.5 text-xs font-bold uppercase tracking-wide",
+                  lastSaleReceipt.isTakeaway
+                    ? "bg-amber-100 text-amber-900 ring-1 ring-amber-300"
+                    : "bg-brand-50 text-brand-800",
+                )}
+              >
+                {lastSaleReceipt.isTakeaway
+                  ? lastSaleReceipt.tableLabel
+                    ? `🛍️ ${lastSaleReceipt.tableLabel}`
+                    : "🛍️ Takeaway"
+                  : `Table ${lastSaleReceipt.tableLabel}`}
+              </div>
+              <div className="mt-1 text-sm font-bold text-slate-700">
+                Sale #{lastSaleReceipt.saleNo}
+              </div>
+            </header>
+
+            <div className="mt-3 border-y border-dashed border-slate-300 py-2 text-[0.72rem] text-slate-700 space-y-0.5">
+              <div className="flex items-baseline justify-between gap-3">
+                <span className="text-slate-500">Order Type</span>
+                <span className="font-medium">
+                  {lastSaleReceipt.isTakeaway ? "🛍️ Takeaway" : "🍽️ Dine-In Table"}
+                </span>
+              </div>
+              {lastSaleReceipt.tableLabel ? (
+                <div className="flex items-baseline justify-between gap-3">
+                  <span className="text-slate-500">
+                    {lastSaleReceipt.isTakeaway ? "Takeaway Slot" : "Table"}
+                  </span>
+                  <span className="font-medium">{lastSaleReceipt.tableLabel}</span>
+                </div>
+              ) : null}
+              <div className="flex items-baseline justify-between gap-3">
+                <span className="text-slate-500">Sales Date</span>
+                <span className="font-medium">
+                  {formatBusinessDate(lastSaleReceipt.businessDate)}
+                </span>
+              </div>
+              <div className="flex items-baseline justify-between gap-3">
+                <span className="text-slate-500">Time</span>
+                <span className="font-medium">{lastSaleReceipt.time}</span>
+              </div>
+            </div>
+
+            <table className="mt-3 w-full text-[0.75rem]">
+              <thead>
+                <tr className="border-b border-slate-300 text-left text-slate-500">
+                  <th className="pb-1 font-medium">Item</th>
+                  <th className="pb-1 text-center font-medium">Qty</th>
+                  <th className="pb-1 text-right font-medium">Rate</th>
+                  <th className="pb-1 text-right font-medium">Amount</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-slate-100">
+                {lastSaleReceipt.items.map((item, idx) => (
+                  <tr key={`${item.menuItemId}-${idx}`} className="align-top">
+                    <td className="py-1.5 pr-2 font-medium text-slate-800">{item.name}</td>
+                    <td className="py-1.5 text-center tabular-nums">{item.qty}</td>
+                    <td className="py-1.5 text-right tabular-nums">{formatAmount(item.price)}</td>
+                    <td className="py-1.5 text-right font-semibold tabular-nums">
+                      {formatAmount(item.lineTotal)}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+
+            <div className="mt-3 space-y-1 border-t border-dashed border-slate-300 pt-2 text-[0.78rem]">
+              <div className="mt-1 flex items-baseline justify-between border-t border-slate-300 pt-1.5 text-base font-bold text-slate-900">
+                <span>Grand Total</span>
+                <span className="tabular-nums">{formatMoney(lastSaleReceipt.total)}</span>
+              </div>
+            </div>
+
+            <p className="mt-4 border-t border-dashed border-slate-300 pt-3 text-center text-[0.72rem] font-bold text-slate-700 uppercase tracking-wider">
+              Paid — Thank You
+            </p>
+            <p className="mt-1 text-center text-[0.7rem] text-slate-500">
+              Please visit us again!
+            </p>
+          </div>
+        )}
+
+        {/* Screen Confirmation View (hidden from printer) */}
+        <div className="print-hidden flex min-h-[60vh] flex-col items-center justify-center gap-6 px-4">
+          <div className="flex size-20 items-center justify-center rounded-full bg-emerald-100">
+            <Check className="size-10 text-emerald-600" strokeWidth={2.5} />
+          </div>
+          <div className="text-center">
+            <h2 className="text-2xl font-bold text-slate-900">
+              Sale #{result.saleNo}
+            </h2>
+            <p className="mt-1 text-sm font-medium text-emerald-600">
+              ✓ Payment received • Printing instantly
+            </p>
+          </div>
+          <div className="flex flex-wrap gap-3">
+            <Button
+              variant="primary"
+              onClick={() => window.print()}
+            >
+              <Printer className="size-4" aria-hidden />
+              Reprint Ticket
+            </Button>
+            <Button variant="outline" onClick={handleNewSale}>
+              Next Sale
+            </Button>
+          </div>
         </div>
-        <div className="text-center">
-          <h2 className="text-2xl font-bold text-slate-900">
-            Sale #{result.saleNo}
-          </h2>
-          <p className="mt-1 text-sm font-medium text-emerald-600">
-            ✓ Payment received • Print dialog launched
-          </p>
-        </div>
-        <div className="flex flex-wrap gap-3">
-          <Button
-            variant="primary"
-            onClick={() => {
-              const printWin = window.open(`/admin/receipt/${result.saleId}`, "_blank");
-              printWin?.focus();
-            }}
-          >
-            <Printer className="size-4" aria-hidden />
-            Reprint Ticket
-          </Button>
-          <Button variant="outline" onClick={handleNewSale}>
-            Next Sale
-          </Button>
-        </div>
-      </div>
+      </>
     );
   }
 

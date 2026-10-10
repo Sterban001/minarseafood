@@ -1,3 +1,4 @@
+import { cache } from "react";
 import { createServerSupabase } from "@/shared/supabase/server";
 import type { BusinessDay, DiningTable, MenuItem, MenuCategory, Sale, SaleItem } from "@/shared/types/database";
 
@@ -8,8 +9,9 @@ import type { BusinessDay, DiningTable, MenuItem, MenuCategory, Sale, SaleItem }
 /**
  * Returns the currently active (open) business day, if any.
  * When null, the store is closed and no sales can be placed.
+ * Wrapped in React cache to memoize across the entire request.
  */
-export async function getActiveBusinessDay(): Promise<BusinessDay | null> {
+export const getActiveBusinessDay = cache(async function getActiveBusinessDay(): Promise<BusinessDay | null> {
   try {
     const supabase = await createServerSupabase();
     const { data, error } = await supabase
@@ -29,12 +31,13 @@ export async function getActiveBusinessDay(): Promise<BusinessDay | null> {
     console.warn("[getActiveBusinessDay] failed", err);
     return null;
   }
-}
+});
 
 /**
  * Returns the most recent business day (either open or closed).
+ * Wrapped in React cache to memoize across the entire request.
  */
-export async function getLatestBusinessDay(): Promise<BusinessDay | null> {
+export const getLatestBusinessDay = cache(async function getLatestBusinessDay(): Promise<BusinessDay | null> {
   try {
     const supabase = await createServerSupabase();
     const { data, error } = await supabase
@@ -49,7 +52,7 @@ export async function getLatestBusinessDay(): Promise<BusinessDay | null> {
   } catch {
     return null;
   }
-}
+});
 
 // ---------------------------------------------------------------------------
 // Menu data for the Quick Sale grid
@@ -164,12 +167,20 @@ export type SaleDetail = {
 export async function getSaleDetail(saleId: string): Promise<SaleDetail | null> {
   const supabase = await createServerSupabase();
 
-  const { data: sale } = await supabase
-    .from("sales")
-    .select("*")
-    .eq("id", saleId)
-    .maybeSingle();
+  const [saleRes, itemsRes] = await Promise.all([
+    supabase
+      .from("sales")
+      .select("*")
+      .eq("id", saleId)
+      .maybeSingle(),
+    supabase
+      .from("sale_items")
+      .select("*")
+      .eq("sale_id", saleId)
+      .order("created_at"),
+  ]);
 
+  const sale = saleRes.data;
   if (!sale) return null;
 
   // Resolve table label if the sale is linked to a table.
@@ -183,13 +194,7 @@ export async function getSaleDetail(saleId: string): Promise<SaleDetail | null> 
     table_label = table?.label ?? null;
   }
 
-  const { data: items } = await supabase
-    .from("sale_items")
-    .select("*")
-    .eq("sale_id", saleId)
-    .order("created_at");
-
-  return { sale: { ...sale, table_label }, items: items ?? [] };
+  return { sale: { ...sale, table_label }, items: itemsRes.data ?? [] };
 }
 
 // ---------------------------------------------------------------------------
@@ -311,16 +316,19 @@ export async function getTableConsolidatedBill(
 ): Promise<TableConsolidatedBill | null> {
   const supabase = await createServerSupabase();
 
-  const { data: table } = await supabase
-    .from("dining_tables")
-    .select("*")
-    .eq("id", tableId)
-    .maybeSingle();
+  const [tableRes, activeDay] = await Promise.all([
+    supabase
+      .from("dining_tables")
+      .select("*")
+      .eq("id", tableId)
+      .maybeSingle(),
+    getActiveBusinessDay(),
+  ]);
 
+  const table = tableRes.data;
   if (!table) return null;
 
   const { todayBusinessDate } = await import("@/shared/lib/dates");
-  const activeDay = await getActiveBusinessDay();
   const businessDate = dateParam ?? activeDay?.date ?? todayBusinessDate();
 
   // Try fetching unbilled sales for current session first
