@@ -53,15 +53,47 @@ type DishCluster = {
 };
 
 const VARIANT_PATTERNS = [
-  // Piece counts: e.g. "1pc", "2pc", "4pc", "1 pc", "2 pcs"
+  // Bottle / Volume sizes: e.g. "500ml", "500ML", "1L", "1 L", "1 Litre", "250ml", "750ml"
   {
-    regex: /[-–—/(\[\s]+\b([0-9]+\s*pcs?)\b[)\]]?/i,
-    format: (m: string) => m.trim(),
+    regex: /[-–—/(\[\s]+\b([0-9]+(?:\.[0-9]+)?\s*(?:ml|l|ltr|litres?))\b[)\]]?/i,
+    format: (m: string) => {
+      const match = m.trim().match(/([0-9]+(?:\.[0-9]+)?)\s*(ml|l|ltr|litres?)/i);
+      if (match) {
+        const val = match[1];
+        const unit = match[2].toLowerCase();
+        if (unit.startsWith("l")) return `${val}L`;
+        return `${val}ML`;
+      }
+      return m.trim().toUpperCase();
+    },
+  },
+  // Piece counts (digits): e.g. "1pc", "2pc", "4pc", "1 pc", "2 pcs", "1 piece", "2 piece", "4 piece"
+  {
+    regex: /[-–—/(\[\s]+\b([0-9]+\s*(?:pcs?|pieces?))\b[)\]]?/i,
+    format: (m: string) => {
+      const match = m.trim().match(/([0-9]+)\s*(?:pcs?|pieces?)/i);
+      return match ? `${match[1]} Piece` : m.trim();
+    },
   },
   // English words piece: e.g. "One Piece", "Two Piece", "Four Piece", "Single Piece"
   {
     regex: /[-–—/(\[\s]+\b((?:one|two|three|four|single|double)\s+piece(?:s)?)\b[)\]]?/i,
-    format: (m: string) => m.trim(),
+    format: (m: string) => {
+      const words: Record<string, string> = {
+        one: "1",
+        two: "2",
+        three: "3",
+        four: "4",
+        single: "1",
+        double: "2",
+      };
+      const lower = m.trim().toLowerCase();
+      const firstWord = lower.split(/\s+/)[0];
+      if (words[firstWord]) {
+        return `${words[firstWord]} Piece`;
+      }
+      return m.trim().replace(/\b\w/g, (c) => c.toUpperCase());
+    },
   },
   // Single, Full, Half, Quarter
   {
@@ -79,6 +111,29 @@ const VARIANT_PATTERNS = [
     format: () => "/KG",
   },
 ];
+
+function normalizeBaseKey(str: string): string {
+  return str
+    .toLowerCase()
+    .replace(/\bbrosted\b/g, "broasted")
+    .replace(/\bprawn\b/g, "prawns")
+    .replace(/\bpomfret\b/g, "pamplet")
+    .replace(/[^a-z0-9]+/g, " ")
+    .trim();
+}
+
+function canonicalTitle(raw: string): string {
+  let title = raw.trim();
+  title = title.replace(/\bbrosted\b/gi, "Broasted");
+  title = title.replace(/\bprawn\s+fry\b/gi, "Prawns Fry");
+  title = title.replace(/\bprawn\b/gi, "Prawns");
+  title = title.replace(/\bpamplet\b/gi, "Pamplet");
+  title = title.replace(/\bpomfret\b/gi, "Pamplet");
+  title = title.replace(/\bwater bottle\b/gi, "Water Bottle");
+  title = title.replace(/\bchicken mandi\b/gi, "Chicken Mandi");
+  title = title.replace(/\bchicken juicy mandi\b/gi, "Chicken Juicy Mandi");
+  return title.replace(/\b([a-z])/g, (c) => c.toUpperCase());
+}
 
 function parseVariant(rawName: string): { base: string; variant: string | null } {
   const noteMatch = rawName.match(/\s*(\([^)]+\))\s*$/);
@@ -100,11 +155,12 @@ function parseVariant(rawName: string): { base: string; variant: string | null }
     }
   }
 
-  // If the note itself is a variant keyword like "(Single)" or "(1pc)"
+  // If the note itself is a variant keyword like "(Single)", "(Full)", "(1pc)", or "(500ML)"
   if (note) {
     const inner = note.replace(/^\(|\)$/g, "").trim();
+    const padded = ` ${inner}`;
     for (const { regex, format } of VARIANT_PATTERNS) {
-      const match = inner.match(regex);
+      const match = padded.match(regex);
       if (match) {
         return { base: nameWithoutNote, variant: format(match[1]) };
       }
@@ -122,27 +178,36 @@ function clusterMenuItems(items: MenuItem[]): DishCluster[] {
     return { item, base, variant };
   });
 
-  // Group by base (case-insensitive)
+  // Group by normalized base (resolves typos and singular/plural: brosted -> broasted, prawn -> prawns)
   const groups = new Map<string, { baseTitle: string; items: typeof parsed }>();
   for (const p of parsed) {
-    const key = p.base.toLowerCase();
+    const key = normalizeBaseKey(p.base);
     if (!groups.has(key)) {
-      groups.set(key, { baseTitle: p.base, items: [] });
+      groups.set(key, { baseTitle: canonicalTitle(p.base), items: [] });
     }
-    groups.get(key)!.items.push(p);
+    const existing = groups.get(key)!;
+    if (/broasted/i.test(p.base) && !/broasted/i.test(existing.baseTitle)) {
+      existing.baseTitle = canonicalTitle(p.base);
+    }
+    if (/prawns/i.test(p.base) && !/prawns/i.test(existing.baseTitle)) {
+      existing.baseTitle = canonicalTitle(p.base);
+    }
+    existing.items.push(p);
   }
 
-  // Handle case where one dish is named "Pepper Fish" (no variant keyword)
-  // and another is named "Pepper Fish Full". We attach "Pepper Fish" to "Pepper Fish Full".
+  // Handle case where one dish is named "Chicken 65" (no variant keyword)
+  // and another is named "Chicken 65 Full" or "Chicken 65 Single".
   for (const [key, group] of Array.from(groups.entries())) {
     if (group.items.length === 1 && !group.items[0].variant) {
       for (const [otherKey, otherGroup] of groups.entries()) {
-        if (otherKey !== key && otherGroup.items.some((i) => Boolean(i.variant))) {
-          if (otherKey === key) {
-            otherGroup.items.push(group.items[0]);
-            groups.delete(key);
-            break;
-          }
+        if (
+          otherKey !== key &&
+          (otherKey.startsWith(key) || key.startsWith(otherKey)) &&
+          otherGroup.items.some((i) => Boolean(i.variant))
+        ) {
+          otherGroup.items.push(group.items[0]);
+          groups.delete(key);
+          break;
         }
       }
     }
@@ -151,16 +216,34 @@ function clusterMenuItems(items: MenuItem[]): DishCluster[] {
   const clusters: DishCluster[] = [];
   for (const group of groups.values()) {
     if (group.items.length > 1) {
-      // Sort variants by price ascending (Single -> Full, 1pc -> 2pc -> 4pc)
+      // Sort variants by price ascending (e.g. Single -> Full, 1 Piece -> 2 Piece -> 4 Piece, 500ML -> 1L)
       const sorted = [...group.items].sort((a, b) => a.item.price - b.item.price);
       clusters.push({
         id: `group-${group.baseTitle.toLowerCase().replace(/\s+/g, "-")}`,
         baseTitle: group.baseTitle,
         isGroup: true,
-        items: sorted.map((s, idx) => ({
-          item: s.item,
-          variantLabel: s.variant || (sorted.length === 2 && idx === 0 ? "Single" : s.item.name),
-        })),
+        items: sorted.map((s, idx) => {
+          let label = s.variant;
+          if (!label) {
+            if (sorted.length === 2) {
+              const hasFull = sorted.some((x) => x.variant?.toLowerCase().includes("full"));
+              const hasBig = sorted.some((x) => x.variant?.toLowerCase().includes("big"));
+              if (hasBig) {
+                label = idx === 0 ? "Small" : "Big";
+              } else if (hasFull) {
+                label = idx === 0 ? "Single" : "Full";
+              } else {
+                label = idx === 0 ? "Single" : "Full";
+              }
+            } else {
+              label = s.item.name;
+            }
+          }
+          return {
+            item: s.item,
+            variantLabel: label,
+          };
+        }),
       });
     } else {
       const single = group.items[0];

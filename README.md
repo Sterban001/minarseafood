@@ -1,45 +1,26 @@
 # MINAR SEA FOOD
 
-Counter-sale POS register, dining table billing system, and public website for **Minar Sea Food** (Charminar, Hyderabad).
+Counter POS register, dining table billing system, and public website for **Minar Sea Food** (Charminar, Hyderabad).
 
 > **Documentation:**  
-> - [`PROJECT.md`](PROJECT.md) — Product requirements, operational workflows, and architecture.  
+> - [`PROJECT.md`](PROJECT.md) — Product requirements, operational workflows, and route map.  
 > - [`HANDOVER.md`](HANDOVER.md) — Database schema, migration order, invariants, and gotchas.
 
 ---
 
-## 🌟 Key Features
+## Key Features
 
-### 1. Manual Business Day Sessions
-- **Start / End Day Controls**: Header controls allow managers to manually open and close the store trading day.
-- **Strict Sale Protection**: Prevents off-hours punches; binds daily resetting sale numbers (`#1`, `#2`, ...) to the active session.
-
-### 2. Quick Sale POS Till (`/admin`)
-- **Fast Touch Grid**: Categories with permanent `<` and `>` arrow buttons, mouse-wheel horizontal scrolling, and touch drag.
-- **Mandatory Order Type**: Select **Takeaway** or **Table Number** before charging cash.
-- **Instant Receipt Printing**: One-click thermal receipt popup upon charging.
-
-### 3. Dining Table & Takeaway Billing & Live Monitoring (`/admin/tables`)
-- **Live Green Tables & Takeaways (`🟢 LIVE`)**: Tables and takeaway order slots with open unbilled orders turn green across the app with live unbilled totals.
-- **Consolidated Table & Takeaway Bills**: Prints a single aggregated customer bill grouping all item orders from the session (`/admin/table-receipt/[tableId]`, `/admin/takeaway-receipt/[tableId]`), with an explicit Takeaway designation line for parcel orders.
-- **One-Click Settlement**: Settles the session (`table_billed_at = NOW()`), resetting table or takeaway slot to available (`⚪ Available`).
-
-### 4. Sales History & Financial Reports
-- **Sales History (`/admin/history`)**: Filter by date and table, expandable item breakdown, and instant reprint.
-- **Daily Reports (`/admin/reports`)**: Financial P&L summary cards (Gross Revenue, Total Expenses, Net Margin %), Day-by-Day Revenue vs Expenses curves, hourly sales distribution, best-selling dishes, and top expense categories.
-
-### 5. Expenses & Daily Salaries (`/admin/expenses`)
-- **Daily Salaries**: Record staff wages with quick role presets and compute daily salaries total.
-- **Daily Expenses (Itemized)**: Add kitchen and supply items by quantity and unit price with real-time cost calculation.
-- **Others (Miscellaneous)**: Record utility bills, auto transport, repairs, and petty cash.
-- **Net Cashflow Indicator**: Live daily balance calculating `Day Sales Revenue - Total Expenses`.
-
-### 6. Public Website (`/`, `/menu`, `/contact`)
-- Fast, mobile-first design with night-kitchen aesthetics, live database menu, Google Maps pin, and WhatsApp ordering link. (No admin links).
+1. **Manual Business Day Sessions**: Manager opens and closes trading sessions via header controls. Prevents off-hours punches; binds daily resetting sale numbers (`#1`, `#2`, ...) to the active session.
+2. **Quick Sale POS Till (`/admin`)**: Fast touch grid with permanent `<` and `>` arrow buttons, mouse-wheel horizontal scrolling, and dish variant clustering (Single/Full, 1pc/2pc cards). One-click direct DOM thermal printing on charge.
+3. **Dining Table & Takeaway Billing (`/admin/tables`)**: Mandatory order type selector (Takeaway 1..5 vs Dine-in Table). Active tables highlight `🟢 LIVE` with accumulated totals. Consolidated session bill printing (`/admin/table-receipt/[id]`) and instant settlement.
+4. **Expenses & Daily Salaries (`/admin/expenses`)**: Track staff daily wages, itemized kitchen supply purchases (`qty * unit_price`), and petty cash. Live net cashflow balance (`Day Sales - Total Expenses`).
+5. **Sales History & Financial Reports (`/admin/history`, `/admin/reports`)**: Searchable sales log, bill reprints, and financial P&L analysis (Revenue, Expenses, Net Margin %, hourly sales, best-selling dishes).
+6. **Menu Management (`/admin/menu`)**: Dishes and category CRUD with availability toggles and safe dish deletion (preserves historical sale receipts and revenue records).
+7. **Public Website (`/`, `/menu`, `/contact`)**: Fast, mobile-first design with night-kitchen aesthetics, live database menu, Google Maps pin, and WhatsApp ordering link. (No admin links).
 
 ---
 
-## 🚀 Quick Start
+## Quick Start
 
 ```bash
 npm run dev        # Starts local development server on http://localhost:3000
