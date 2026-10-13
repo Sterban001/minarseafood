@@ -211,6 +211,11 @@ export function QuickSaleView({
     [tables],
   );
 
+  const activeCat = categories.find((c) => c.id === activeCategory);
+  const itemClusters = useMemo(() => {
+    return clusterMenuItems(activeCat?.items ?? []);
+  }, [activeCat?.items]);
+
   const categoriesRef = useRef<HTMLDivElement>(null);
   const [canScrollLeft, setCanScrollLeft] = useState(false);
   const [canScrollRight, setCanScrollRight] = useState(true);
@@ -532,10 +537,6 @@ export function QuickSaleView({
     );
   }
 
-  const activeCat = categories.find((c) => c.id === activeCategory);
-  const itemClusters = useMemo(() => {
-    return clusterMenuItems(activeCat?.items ?? []);
-  }, [activeCat?.items]);
   const isReadyToCharge =
     Boolean(activeDay) &&
     cart.length > 0 &&
