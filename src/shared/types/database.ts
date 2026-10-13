@@ -382,6 +382,9 @@ export type Database = {
           qty?: number;
         };
         Update: {
+          menu_item_id?: string | null;
+          item_name?: string;
+          item_price?: number;
           qty?: number;
         };
         Relationships: [

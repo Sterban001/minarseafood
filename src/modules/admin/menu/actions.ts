@@ -206,8 +206,32 @@ export async function deleteMenuItem(form: FormData): Promise<ActionResult> {
   return guarded(async () => {
     await managerActor();
     const id = text(form, "id");
+    if (!id) return fail("Missing dish ID.");
 
     const supabase = await createServerSupabase();
+
+    // Detach historical sale items so foreign key constraint doesn't block deletion.
+    // Sale items already snapshot item_name and item_price, preserving history and reports.
+    const { error: unlinkError } = await supabase
+      .from("sale_items")
+      .update({ menu_item_id: null })
+      .eq("menu_item_id", id);
+    if (unlinkError) throw new Error(unlinkError.message);
+
+    // If an image was uploaded to storage, clean it up
+    const { data: item } = await supabase
+      .from("menu_items")
+      .select("image_url")
+      .eq("id", id)
+      .maybeSingle();
+
+    if (item?.image_url) {
+      const match = item.image_url.match(/dishes\/[^?#]+/);
+      if (match) {
+        await supabase.storage.from("menu").remove([match[0]]);
+      }
+    }
+
     const { error } = await supabase.from("menu_items").delete().eq("id", id);
     if (error) throw new Error(error.message);
 

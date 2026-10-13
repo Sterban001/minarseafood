@@ -27,6 +27,7 @@ Read `PROJECT.md` first for state, routes, and workflow. This file covers traps 
 7. `20261006_expenses.sql` — Adds `expenses` table, calculation triggers, & `v_daily_expenses_summary`
 8. `20261010_takeaway_tables.sql` — Seeds takeaway slots in `dining_tables` for Takeaway Consolidated Billing
 9. `20261010_speed_indexes.sql` — Speed indexes on `sales(business_date)`, `sale_items(sale_id)`, and `sales(business_date, table_id)`
+10. `20261013_menu_items_on_delete_set_null.sql` — Sets `ON DELETE SET NULL` on `sale_items.menu_item_id` foreign key
 
 ### Critical Invariants (Must Not Break)
 
