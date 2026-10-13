@@ -164,7 +164,10 @@ export type SaleDetail = {
   items: SaleItem[];
 };
 
+const UUID_REGEX = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
 export async function getSaleDetail(saleId: string): Promise<SaleDetail | null> {
+  if (!saleId || !UUID_REGEX.test(saleId)) return null;
   const supabase = await createServerSupabase();
 
   const [saleRes, itemsRes] = await Promise.all([
@@ -314,6 +317,7 @@ export async function getTableConsolidatedBill(
   tableId: string,
   dateParam?: string,
 ): Promise<TableConsolidatedBill | null> {
+  if (!tableId || !UUID_REGEX.test(tableId)) return null;
   const supabase = await createServerSupabase();
 
   const [tableRes, activeDay] = await Promise.all([

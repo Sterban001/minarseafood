@@ -19,6 +19,7 @@ import { SubmitButton } from "@/shared/ui/submit-button";
 import { Badge, Card, CardHeader, EmptyState } from "@/shared/ui/surface";
 
 import { getLiveTablesStatus, type LiveTableInfo } from "@/modules/admin/sales/queries";
+import { settleTableBillAction } from "@/modules/admin/sales/actions";
 import { formatMoney } from "@/shared/lib/money";
 import { cn } from "@/shared/ui/cn";
 
@@ -339,16 +340,11 @@ function TableCard({
             {isTakeaway ? "Print & Settle Takeaway" : "Print & Settle Table"}
           </Link>
 
-          <form
-            action={async () => {
-              "use server";
-              const { settleTableBill } = await import("@/modules/admin/sales/actions");
-              await settleTableBill(table.id);
-            }}
-          >
+          <form action={settleTableBillAction}>
+            <input type="hidden" name="tableId" value={table.id} />
             <button
               type="submit"
-              className="text-xs font-semibold text-emerald-800 hover:text-emerald-950 hover:underline"
+              className="text-xs font-semibold text-emerald-800 hover:text-emerald-950 hover:underline cursor-pointer"
             >
               Settle
             </button>

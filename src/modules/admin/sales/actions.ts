@@ -216,6 +216,10 @@ export async function createSale(
  */
 export async function settleTableBill(tableId: string): Promise<{ ok: boolean; error?: string }> {
   try {
+    const UUID_REGEX = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+    if (!tableId || !UUID_REGEX.test(tableId)) {
+      return { ok: false, error: "Invalid table ID." };
+    }
     await actor();
     const supabase = await createServerSupabase();
     const { todayBusinessDate } = await import("@/shared/lib/dates");
@@ -244,6 +248,14 @@ export async function settleTableBill(tableId: string): Promise<{ ok: boolean; e
   } catch (err) {
     console.error("[settleTableBill]", err);
     return { ok: false, error: "Something went wrong." };
+  }
+}
+
+/** Form action adapter for settleTableBill */
+export async function settleTableBillAction(formData: FormData): Promise<void> {
+  const tableId = String(formData.get("tableId") ?? "").trim();
+  if (tableId) {
+    await settleTableBill(tableId);
   }
 }
 

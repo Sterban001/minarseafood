@@ -4,6 +4,7 @@ import { notFound } from "next/navigation";
 import { ArrowLeft } from "lucide-react";
 
 import { PrintButton } from "@/modules/admin/sales/components/print-button";
+import { settleTableBillAction } from "@/modules/admin/sales/actions";
 import { getTableConsolidatedBill } from "@/modules/admin/sales/queries";
 import { fullAddress, restaurant } from "@/shared/config/restaurant";
 import { formatBusinessDate, formatTime } from "@/shared/lib/dates";
@@ -44,16 +45,11 @@ export default async function TableReceiptPage({
         </Link>
         <div className="flex items-center gap-2">
           {bill.isUnbilled ? (
-            <form
-              action={async () => {
-                "use server";
-                const { settleTableBill } = await import("@/modules/admin/sales/actions");
-                await settleTableBill(tableId);
-              }}
-            >
+            <form action={settleTableBillAction}>
+              <input type="hidden" name="tableId" value={tableId} />
               <button
                 type="submit"
-                className="rounded-lg bg-emerald-600 px-3 py-1.5 text-xs font-bold text-white shadow-xs hover:bg-emerald-700"
+                className="rounded-lg bg-emerald-600 px-3 py-1.5 text-xs font-bold text-white shadow-xs hover:bg-emerald-700 cursor-pointer"
               >
                 Mark Settled (Clear Green)
               </button>
