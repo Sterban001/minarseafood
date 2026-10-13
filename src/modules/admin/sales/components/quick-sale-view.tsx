@@ -24,7 +24,7 @@ import type { CategoryWithItems, LiveTableInfo } from "@/modules/admin/sales/que
 import { fullAddress, restaurant } from "@/shared/config/restaurant";
 import { formatBusinessDate, todayBusinessDate } from "@/shared/lib/dates";
 import { formatAmount, formatMoney } from "@/shared/lib/money";
-import type { BusinessDay, DiningTable } from "@/shared/types/database";
+import type { BusinessDay, DiningTable, MenuItem } from "@/shared/types/database";
 import { Button } from "@/shared/ui/button";
 import { cn } from "@/shared/ui/cn";
 
@@ -39,6 +39,147 @@ type LastSaleReceipt = {
   businessDate: string;
   time: string;
 };
+
+type DishVariant = {
+  item: MenuItem;
+  variantLabel: string;
+};
+
+type DishCluster = {
+  id: string;
+  baseTitle: string;
+  isGroup: boolean;
+  items: DishVariant[];
+};
+
+const VARIANT_PATTERNS = [
+  // Piece counts: e.g. "1pc", "2pc", "4pc", "1 pc", "2 pcs"
+  {
+    regex: /[-–—/(\[\s]+\b([0-9]+\s*pcs?)\b[)\]]?/i,
+    format: (m: string) => m.trim(),
+  },
+  // English words piece: e.g. "One Piece", "Two Piece", "Four Piece", "Single Piece"
+  {
+    regex: /[-–—/(\[\s]+\b((?:one|two|three|four|single|double)\s+piece(?:s)?)\b[)\]]?/i,
+    format: (m: string) => m.trim(),
+  },
+  // Single, Full, Half, Quarter
+  {
+    regex: /[-–—/(\[\s]+\b(single|full|half|quarter)\b[)\]]?/i,
+    format: (m: string) => m.charAt(0).toUpperCase() + m.slice(1).toLowerCase(),
+  },
+  // Small, Big, Large, Medium
+  {
+    regex: /[-–—/(\[\s]+\b(small|big|large|medium|regular)\b[)\]]?/i,
+    format: (m: string) => m.charAt(0).toUpperCase() + m.slice(1).toLowerCase(),
+  },
+  // Per KG, /KG, / KG
+  {
+    regex: /[-–—/(\[\s]+(\/?\s*(?:per\s+)?kg)\b[)\]]?/i,
+    format: () => "/KG",
+  },
+];
+
+function parseVariant(rawName: string): { base: string; variant: string | null } {
+  const noteMatch = rawName.match(/\s*(\([^)]+\))\s*$/);
+  const note = noteMatch ? noteMatch[1] : "";
+  const nameWithoutNote = noteMatch ? rawName.slice(0, -noteMatch[0].length).trim() : rawName.trim();
+
+  for (const { regex, format } of VARIANT_PATTERNS) {
+    const match = nameWithoutNote.match(regex);
+    if (match) {
+      const variantRaw = match[1];
+      const base = nameWithoutNote.replace(match[0], "").trim().replace(/[-–—/(\[,]+$/, "").trim();
+      if (base.length > 0) {
+        const formatted = format(variantRaw);
+        return {
+          base,
+          variant: note ? `${formatted} ${note}` : formatted,
+        };
+      }
+    }
+  }
+
+  // If the note itself is a variant keyword like "(Single)" or "(1pc)"
+  if (note) {
+    const inner = note.replace(/^\(|\)$/g, "").trim();
+    for (const { regex, format } of VARIANT_PATTERNS) {
+      const match = inner.match(regex);
+      if (match) {
+        return { base: nameWithoutNote, variant: format(match[1]) };
+      }
+    }
+  }
+
+  return { base: rawName.trim(), variant: null };
+}
+
+function clusterMenuItems(items: MenuItem[]): DishCluster[] {
+  if (!items.length) return [];
+
+  const parsed = items.map((item) => {
+    const { base, variant } = parseVariant(item.name);
+    return { item, base, variant };
+  });
+
+  // Group by base (case-insensitive)
+  const groups = new Map<string, { baseTitle: string; items: typeof parsed }>();
+  for (const p of parsed) {
+    const key = p.base.toLowerCase();
+    if (!groups.has(key)) {
+      groups.set(key, { baseTitle: p.base, items: [] });
+    }
+    groups.get(key)!.items.push(p);
+  }
+
+  // Handle case where one dish is named "Pepper Fish" (no variant keyword)
+  // and another is named "Pepper Fish Full". We attach "Pepper Fish" to "Pepper Fish Full".
+  for (const [key, group] of Array.from(groups.entries())) {
+    if (group.items.length === 1 && !group.items[0].variant) {
+      for (const [otherKey, otherGroup] of groups.entries()) {
+        if (otherKey !== key && otherGroup.items.some((i) => Boolean(i.variant))) {
+          if (otherKey === key) {
+            otherGroup.items.push(group.items[0]);
+            groups.delete(key);
+            break;
+          }
+        }
+      }
+    }
+  }
+
+  const clusters: DishCluster[] = [];
+  for (const group of groups.values()) {
+    if (group.items.length > 1) {
+      // Sort variants by price ascending (Single -> Full, 1pc -> 2pc -> 4pc)
+      const sorted = [...group.items].sort((a, b) => a.item.price - b.item.price);
+      clusters.push({
+        id: `group-${group.baseTitle.toLowerCase().replace(/\s+/g, "-")}`,
+        baseTitle: group.baseTitle,
+        isGroup: true,
+        items: sorted.map((s, idx) => ({
+          item: s.item,
+          variantLabel: s.variant || (sorted.length === 2 && idx === 0 ? "Single" : s.item.name),
+        })),
+      });
+    } else {
+      const single = group.items[0];
+      clusters.push({
+        id: single.item.id,
+        baseTitle: single.item.name,
+        isGroup: false,
+        items: [
+          {
+            item: single.item,
+            variantLabel: single.item.name,
+          },
+        ],
+      });
+    }
+  }
+
+  return clusters;
+}
 
 export function QuickSaleView({
   categories,
@@ -392,6 +533,9 @@ export function QuickSaleView({
   }
 
   const activeCat = categories.find((c) => c.id === activeCategory);
+  const itemClusters = useMemo(() => {
+    return clusterMenuItems(activeCat?.items ?? []);
+  }, [activeCat?.items]);
   const isReadyToCharge =
     Boolean(activeDay) &&
     cart.length > 0 &&
@@ -506,28 +650,100 @@ export function QuickSaleView({
         {/* Item grid */}
         <div className="flex-1 overflow-y-auto p-3">
           <div className="grid grid-cols-2 gap-2.5 sm:grid-cols-3 md:grid-cols-4 xl:grid-cols-5">
-            {(activeCat?.items ?? []).map((item) => {
+            {itemClusters.map((cluster) => {
+              if (cluster.isGroup) {
+                const groupInCartCount = cluster.items.reduce((sum, v) => {
+                  const line = cart.find((l) => l.menuItemId === v.item.id);
+                  return sum + (line?.qty ?? 0);
+                }, 0);
+
+                return (
+                  <div
+                    key={cluster.id}
+                    className="flex flex-col justify-between rounded-xl border border-slate-200 bg-white p-2.5 shadow-2xs hover:border-slate-300 hover:shadow-xs transition-all"
+                  >
+                    {/* Dish title header */}
+                    <div className="flex items-center justify-between gap-1 border-b border-slate-100 pb-1.5 mb-2 px-0.5">
+                      <span
+                        className="text-xs font-bold uppercase tracking-wider text-slate-800 truncate"
+                        title={cluster.baseTitle}
+                      >
+                        {cluster.baseTitle}
+                      </span>
+                      {groupInCartCount > 0 && (
+                        <span className="flex items-center gap-0.5 rounded-full bg-brand-100 px-1.5 py-0.5 text-[0.65rem] font-bold text-brand-800 ring-1 ring-brand-300/60 shrink-0">
+                          <span>{groupInCartCount}</span>
+                          <span className="text-[0.6rem] font-medium">in cart</span>
+                        </span>
+                      )}
+                    </div>
+
+                    {/* Stacked variants: one above the other */}
+                    <div className="flex flex-col gap-1.5 flex-1 justify-center">
+                      {cluster.items.map((variant) => {
+                        const inCart = cart.find((l) => l.menuItemId === variant.item.id);
+                        return (
+                          <button
+                            key={variant.item.id}
+                            type="button"
+                            onClick={() => addItem(variant.item.id, variant.item.name, variant.item.price)}
+                            className={cn(
+                              "relative flex items-center justify-between rounded-lg px-2.5 py-2 text-left transition-all active:scale-[0.98] cursor-pointer",
+                              inCart
+                                ? "bg-brand-700 text-white font-medium shadow-xs ring-1 ring-brand-800"
+                                : "bg-slate-50 hover:bg-brand-50 hover:text-brand-900 border border-slate-200 text-slate-800",
+                            )}
+                          >
+                            <span className="text-xs font-semibold truncate pr-1.5">
+                              {variant.variantLabel}
+                            </span>
+                            <div className="flex items-center gap-1.5 shrink-0">
+                              <span
+                                className={cn(
+                                  "text-xs font-bold tabular-nums",
+                                  inCart ? "text-white" : "text-brand-700",
+                                )}
+                              >
+                                {formatMoney(variant.item.price)}
+                              </span>
+                              {inCart && (
+                                <span className="flex size-4.5 items-center justify-center rounded-full bg-white text-[0.65rem] font-black text-brand-700 shadow-2xs">
+                                  {inCart.qty}
+                                </span>
+                              )}
+                            </div>
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </div>
+                );
+              }
+
+              // Standalone item card
+              const item = cluster.items[0].item;
               const inCart = cart.find((l) => l.menuItemId === item.id);
+
               return (
                 <button
                   key={item.id}
                   type="button"
                   onClick={() => addItem(item.id, item.name, item.price)}
                   className={cn(
-                    "relative flex flex-col items-start rounded-xl border p-3 text-left transition-all active:scale-[0.97]",
+                    "relative flex flex-col justify-between rounded-xl border p-3 text-left transition-all active:scale-[0.97] min-h-[96px] cursor-pointer",
                     inCart
                       ? "border-brand-300 bg-brand-50 shadow-sm"
-                      : "border-slate-200 bg-white hover:border-slate-300 hover:shadow-sm",
+                      : "border-slate-200 bg-white hover:border-slate-300 hover:shadow-xs",
                   )}
                 >
-                  <span className="text-sm font-medium text-slate-900 leading-snug">
+                  <span className="text-sm font-semibold text-slate-900 leading-snug">
                     {item.name}
                   </span>
-                  <span className="mt-1 text-sm font-semibold text-brand-700 tabular-nums">
+                  <span className="mt-2 text-sm font-bold text-brand-700 tabular-nums">
                     {formatMoney(item.price)}
                   </span>
                   {inCart ? (
-                    <span className="absolute top-2 right-2 flex size-6 items-center justify-center rounded-full bg-brand-700 text-xs font-bold text-white">
+                    <span className="absolute top-2 right-2 flex size-6 items-center justify-center rounded-full bg-brand-700 text-xs font-bold text-white shadow-xs">
                       {inCart.qty}
                     </span>
                   ) : null}
