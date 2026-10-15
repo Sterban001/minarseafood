@@ -82,20 +82,28 @@ export type ItemRow = {
   saleCount: number;
 };
 
-export async function getCounterItemSales(range: DateRange): Promise<ItemRow[]> {
+export async function getCounterItemSales(
+  range: DateRange,
+  options?: { includeUnsold?: boolean },
+): Promise<ItemRow[]> {
   const supabase = await createServerSupabase();
 
-  const { data, error } = await supabase
-    .from("v_counter_sales_by_item")
-    .select("*")
-    .gte("business_date", range.from)
-    .lte("business_date", range.to);
+  const [salesResult, menuResult] = await Promise.all([
+    supabase
+      .from("v_counter_sales_by_item")
+      .select("*")
+      .gte("business_date", range.from)
+      .lte("business_date", range.to),
+    options?.includeUnsold
+      ? supabase.from("menu_items").select("id, name, is_available").order("sort_order")
+      : Promise.resolve({ data: null, error: null }),
+  ]);
 
-  if (error) throw new Error(error.message);
+  if (salesResult.error) throw new Error(salesResult.error.message);
 
   const merged = new Map<string, ItemRow>();
 
-  for (const row of (data ?? []) as CounterSalesByItem[]) {
+  for (const row of (salesResult.data ?? []) as CounterSalesByItem[]) {
     const key = row.menu_item_id ?? row.item_name;
     const current =
       merged.get(key) ??
@@ -113,9 +121,33 @@ export async function getCounterItemSales(range: DateRange): Promise<ItemRow[]> 
     merged.set(key, current);
   }
 
+  if (options?.includeUnsold && menuResult.data) {
+    for (const item of menuResult.data) {
+      const alreadyMerged =
+        merged.has(item.id) ||
+        Array.from(merged.values()).some(
+          (m) => m.itemName.trim().toLowerCase() === item.name.trim().toLowerCase(),
+        );
+
+      if (!alreadyMerged) {
+        merged.set(item.id, {
+          itemId: item.id,
+          itemName: item.name,
+          qty: 0,
+          revenue: 0,
+          saleCount: 0,
+        });
+      }
+    }
+  }
+
   return [...merged.values()]
     .map((row) => ({ ...row, revenue: round2(row.revenue) }))
-    .sort((a, b) => b.revenue - a.revenue);
+    .sort((a, b) => {
+      if (b.revenue !== a.revenue) return b.revenue - a.revenue;
+      if (b.qty !== a.qty) return b.qty - a.qty;
+      return a.itemName.localeCompare(b.itemName);
+    });
 }
 
 // ---------------------------------------------------------------------------

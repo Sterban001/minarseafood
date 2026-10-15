@@ -421,5 +421,66 @@ export async function getTableConsolidatedBill(
   };
 }
 
+// ---------------------------------------------------------------------------
+// Unbilled sales with items for a table (for inline table card detail view)
+// ---------------------------------------------------------------------------
 
+export type TableSaleWithItems = {
+  saleId: string;
+  saleNo: number;
+  total: number;
+  createdAt: string;
+  items: Array<{
+    id: string;
+    itemName: string;
+    itemPrice: number;
+    qty: number;
+    lineTotal: number;
+  }>;
+};
+
+export async function getTableUnbilledSales(tableId: string): Promise<TableSaleWithItems[]> {
+  if (!tableId || !UUID_REGEX.test(tableId)) return [];
+  const supabase = await createServerSupabase();
+  const activeDay = await getActiveBusinessDay();
+  if (!activeDay) return [];
+
+  const { data: sales } = await supabase
+    .from("sales")
+    .select("*")
+    .eq("table_id", tableId)
+    .eq("business_date", activeDay.date)
+    .is("table_billed_at", null)
+    .order("created_at", { ascending: true });
+
+  if (!sales?.length) return [];
+
+  const saleIds = sales.map((s) => s.id);
+  const { data: saleItems } = await supabase
+    .from("sale_items")
+    .select("*")
+    .in("sale_id", saleIds)
+    .order("created_at", { ascending: true });
+
+  const itemsBySale = new Map<string, TableSaleWithItems["items"]>();
+  for (const item of saleItems ?? []) {
+    const list = itemsBySale.get(item.sale_id) ?? [];
+    list.push({
+      id: item.id,
+      itemName: item.item_name,
+      itemPrice: Number(item.item_price),
+      qty: item.qty,
+      lineTotal: Number(item.line_total),
+    });
+    itemsBySale.set(item.sale_id, list);
+  }
+
+  return sales.map((sale) => ({
+    saleId: sale.id,
+    saleNo: sale.sale_no,
+    total: Number(sale.total),
+    createdAt: sale.created_at,
+    items: itemsBySale.get(sale.id) ?? [],
+  }));
+}
 

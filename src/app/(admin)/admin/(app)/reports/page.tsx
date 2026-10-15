@@ -34,11 +34,14 @@ export default async function ReportsPage({
   const [daily, earlierDaily, items, hours, expenses, earlierExpenses] = await Promise.all([
     getCounterDailySales(range),
     getCounterDailySales(previous),
-    getCounterItemSales(range),
+    getCounterItemSales(range, { includeUnsold: true }),
     getCounterHourlySales(range),
     getExpensesReport(range),
     getExpensesReport(previous),
   ]);
+
+  const soldItems = items.filter((item) => item.qty > 0);
+  const unsoldItems = items.filter((item) => item.qty === 0);
 
   const totals = sumCounterTotals(daily);
   const earlier = sumCounterTotals(earlierDaily);
@@ -249,10 +252,10 @@ export default async function ReportsPage({
         <Card>
           <CardHeader
             title="Best sellers"
-            subtitle={`Top ${Math.min(items.length, 10)} of ${items.length} dishes sold`}
+            subtitle={`Top ${Math.min(soldItems.length, 10)} of ${soldItems.length} dishes sold (${items.length} total menu dishes)`}
           />
           <BarList
-            rows={items.slice(0, 10).map((item) => ({
+            rows={soldItems.slice(0, 10).map((item) => ({
               label: item.itemName,
               value: item.revenue,
               display: formatMoney(item.revenue),
@@ -279,6 +282,90 @@ export default async function ReportsPage({
           />
         </Card>
       </div>
+
+      {/* Complete Itemized Sales Table (All Dishes) */}
+      {items.length > 0 && (
+        <Card className="mt-4">
+          <CardHeader
+            title="Complete Itemized Sales Breakdown"
+            subtitle={`All ${items.length} menu dishes · ${soldItems.length} sold with orders · ${unsoldItems.length} unsold in this period`}
+            action={
+              <Link
+                href={printUrl}
+                target="_blank"
+                className="inline-flex items-center gap-1.5 rounded-lg border border-slate-300 bg-white px-2.5 py-1 text-xs font-semibold text-slate-700 shadow-2xs transition-colors hover:bg-slate-50"
+              >
+                <Printer className="size-3 text-slate-600" />
+                <span>Print All Items Report</span>
+              </Link>
+            }
+          />
+          <div className="overflow-x-auto p-4 sm:p-5 pt-0">
+            <table className="w-full border-collapse text-left text-xs">
+              <thead>
+                <tr className="border-b border-slate-200 text-slate-500">
+                  <th className="py-2.5 pr-2 w-8 font-semibold text-slate-400">#</th>
+                  <th className="py-2.5 pr-4 font-semibold">Dish Name</th>
+                  <th className="py-2.5 px-3 text-center font-semibold">Qty Sold</th>
+                  <th className="py-2.5 px-3 text-center font-semibold">Orders (Tickets)</th>
+                  <th className="py-2.5 px-3 text-right font-semibold">Total Revenue</th>
+                  <th className="py-2.5 pl-3 text-right font-semibold">% of Gross Sales</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-slate-100">
+                {items.map((item, idx) => {
+                  const pct = totals.revenue > 0 ? percentOf(item.revenue, totals.revenue) : 0;
+                  const isUnsold = item.qty === 0;
+
+                  return (
+                    <tr
+                      key={item.itemName + (item.itemId ?? idx)}
+                      className={isUnsold ? "text-slate-400 bg-slate-50/40" : "hover:bg-slate-50/60"}
+                    >
+                      <td className="py-2.5 pr-2 tabular-nums text-slate-400">{idx + 1}</td>
+                      <td className="py-2.5 pr-4 font-medium text-slate-900">
+                        {item.itemName}
+                        {isUnsold ? (
+                          <span className="ml-2 rounded bg-slate-100 px-1.5 py-0.5 text-[10px] font-semibold text-slate-500">
+                            No Sales
+                          </span>
+                        ) : null}
+                      </td>
+                      <td className="py-2.5 px-3 text-center tabular-nums font-bold text-slate-800">
+                        {item.qty}
+                      </td>
+                      <td className="py-2.5 px-3 text-center tabular-nums text-slate-600">
+                        {item.saleCount}
+                      </td>
+                      <td className="py-2.5 px-3 text-right tabular-nums font-semibold text-slate-900">
+                        {formatMoney(item.revenue)}
+                      </td>
+                      <td className="py-2.5 pl-3 text-right tabular-nums font-medium text-slate-600">
+                        {pct > 0 ? `${pct}%` : "0%"}
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+              <tfoot className="border-t-2 border-slate-200 font-bold text-slate-900 bg-slate-50/50">
+                <tr>
+                  <td colSpan={2} className="py-2.5 pr-4 pl-2 font-bold uppercase text-slate-900">
+                    Total All Dishes ({items.length} dishes)
+                  </td>
+                  <td className="py-2.5 px-3 text-center tabular-nums font-black text-slate-900">
+                    {items.reduce((sum, item) => sum + item.qty, 0)}
+                  </td>
+                  <td className="py-2.5 px-3 text-center tabular-nums text-slate-500">—</td>
+                  <td className="py-2.5 px-3 text-right tabular-nums font-black text-emerald-700">
+                    {formatMoney(items.reduce((sum, item) => sum + item.revenue, 0))}
+                  </td>
+                  <td className="py-2.5 pl-3 text-right tabular-nums text-slate-900">100%</td>
+                </tr>
+              </tfoot>
+            </table>
+          </div>
+        </Card>
+      )}
 
       {/* Day-by-Day Reconciliation Table (Multi-day) */}
       {!singleDay && daily.length > 0 && (

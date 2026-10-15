@@ -18,8 +18,9 @@ import { Field, Input, Select } from "@/shared/ui/form";
 import { SubmitButton } from "@/shared/ui/submit-button";
 import { Badge, Card, CardHeader, EmptyState } from "@/shared/ui/surface";
 
-import { getLiveTablesStatus, type LiveTableInfo } from "@/modules/admin/sales/queries";
+import { getLiveTablesStatus, getTableUnbilledSales, type LiveTableInfo, type TableSaleWithItems } from "@/modules/admin/sales/queries";
 import { settleTableBillAction } from "@/modules/admin/sales/actions";
+import { TableBillDetail } from "@/modules/admin/sales/components/table-bill-detail";
 import { formatMoney } from "@/shared/lib/money";
 import { cn } from "@/shared/ui/cn";
 
@@ -48,6 +49,20 @@ export default async function TablesAdminPage() {
   const liveDineIn = allTables.filter((t) => t.zone !== "Takeaway" && liveMap[t.id]?.isLive).length;
   const liveTakeaway = allTables.filter((t) => t.zone === "Takeaway" && liveMap[t.id]?.isLive).length;
   const inactive = allTables.length - active;
+
+  // Fetch unbilled sale details for all live tables in parallel
+  const liveTableIds = allTables
+    .filter((t) => liveMap[t.id]?.isLive)
+    .map((t) => t.id);
+  const salesByTable: Record<string, TableSaleWithItems[]> = {};
+  if (liveTableIds.length > 0) {
+    const results = await Promise.all(
+      liveTableIds.map((id) => getTableUnbilledSales(id)),
+    );
+    liveTableIds.forEach((id, i) => {
+      salesByTable[id] = results[i];
+    });
+  }
 
   // Group by zone
   const byZone = allTables.reduce<Record<string, DiningTable[]>>((acc, t) => {
@@ -147,6 +162,7 @@ export default async function TablesAdminPage() {
                     key={table.id}
                     table={table}
                     liveInfo={liveMap[table.id]}
+                    unbilledSales={salesByTable[table.id] ?? []}
                   />
                 ))}
               </div>
@@ -161,9 +177,11 @@ export default async function TablesAdminPage() {
 function TableCard({
   table,
   liveInfo,
+  unbilledSales,
 }: {
   table: DiningTable;
   liveInfo?: LiveTableInfo;
+  unbilledSales: TableSaleWithItems[];
 }) {
   const isLive = Boolean(liveInfo?.isLive);
   const isTakeaway =
@@ -213,7 +231,7 @@ function TableCard({
           </p>
           {isLive && liveInfo ? (
             <p className="mt-1 text-xs font-bold text-emerald-800 tabular-nums">
-              Unbilled: {formatMoney(liveInfo.unbilledTotal)} ({liveInfo.unbilledSalesCount} {liveInfo.unbilledSalesCount === 1 ? "order" : "orders"})
+              Unbilled: {formatMoney(liveInfo.unbilledTotal)} · {liveInfo.unbilledSalesCount} {liveInfo.unbilledSalesCount === 1 ? "bill" : "bills"}
             </p>
           ) : null}
         </div>
@@ -327,6 +345,11 @@ function TableCard({
           </Popover>
         </div>
       </div>
+
+      {/* Expandable bill detail for live tables */}
+      {isLive && unbilledSales.length > 0 ? (
+        <TableBillDetail sales={unbilledSales} tableLabel={table.label} />
+      ) : null}
 
       {/* Bottom action row for live tables */}
       {isLive ? (

@@ -308,9 +308,85 @@ export async function deleteSale(saleId: string): Promise<ActionResult> {
     revalidatePath("/admin/reports");
     revalidatePath("/admin/tables");
 
-    return done(`Bill #${sale.sale_no} (₹${sale.total}) deleted successfully.`);
+  return done(`Bill #${sale.sale_no} (₹${sale.total}) deleted successfully.`);
   });
 }
 
+/**
+ * Deletes a single sale item. If the parent sale has no items left after
+ * deletion, the sale itself is removed. Otherwise the sale total is
+ * recalculated by the DB trigger (`trg_recalc_sale_total`).
+ */
+export async function deleteSaleItem(saleItemId: string): Promise<ActionResult> {
+  return guarded(async () => {
+    await actor();
+    const supabase = await createServerSupabase();
+
+    if (!saleItemId) return fail("Sale item ID is required.");
+
+    // Fetch the item to know its parent sale
+    const { data: item, error: fetchErr } = await supabase
+      .from("sale_items")
+      .select("id, sale_id, item_name, qty")
+      .eq("id", saleItemId)
+      .maybeSingle();
+
+    if (fetchErr || !item) {
+      return fail("Item not found or already deleted.");
+    }
+
+    // Delete the item
+    const { error: delErr } = await supabase
+      .from("sale_items")
+      .delete()
+      .eq("id", saleItemId);
+
+    if (delErr) {
+      console.error("[deleteSaleItem] delete error:", delErr);
+      return fail("Failed to delete item: " + delErr.message);
+    }
+
+    // Check if the parent sale still has items
+    const { count } = await supabase
+      .from("sale_items")
+      .select("id", { count: "exact", head: true })
+      .eq("sale_id", item.sale_id);
+
+    if (count === 0) {
+      // No items left — delete the empty sale
+      await supabase.from("sales").delete().eq("id", item.sale_id);
+    } else {
+      // Recalc the sale total by doing a no-op update on a remaining item
+      // (triggers `trg_recalc_sale_total`)
+      const { data: remaining } = await supabase
+        .from("sale_items")
+        .select("id, qty")
+        .eq("sale_id", item.sale_id)
+        .limit(1)
+        .single();
+
+      if (remaining) {
+        await supabase
+          .from("sale_items")
+          .update({ qty: remaining.qty })
+          .eq("id", remaining.id);
+      }
+    }
+
+    revalidatePath("/admin");
+    revalidatePath("/admin/history");
+    revalidatePath("/admin/reports");
+    revalidatePath("/admin/tables");
+
+    return done(`Removed ${item.item_name} × ${item.qty}`);
+  });
+}
+
+/** Form action adapter for deleteSaleItem */
+export async function deleteSaleItemAction(formData: FormData): Promise<ActionResult> {
+  const saleItemId = String(formData.get("saleItemId") ?? "").trim();
+  if (!saleItemId) return fail("Sale item ID is required.");
+  return deleteSaleItem(saleItemId);
+}
 
 

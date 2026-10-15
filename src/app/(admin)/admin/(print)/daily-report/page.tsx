@@ -13,7 +13,7 @@ import {
 import { resolveRange } from "@/modules/admin/reports/range";
 import { fullAddress, restaurant } from "@/shared/config/restaurant";
 import { formatBusinessDate, formatBusinessDateShort, formatHourLabel } from "@/shared/lib/dates";
-import { formatAmount, formatMoney, percentOf } from "@/shared/lib/money";
+import { formatAmount, formatMoney, percentOf, round2 } from "@/shared/lib/money";
 
 export const metadata: Metadata = { title: "Financial Report — Printable" };
 
@@ -37,7 +37,7 @@ export default async function DailyReportPrintPage({
 
   const [daily, items, hours, expenses] = await Promise.all([
     getCounterDailySales(range),
-    getCounterItemSales(range),
+    getCounterItemSales(range, { includeUnsold: true }),
     getCounterHourlySales(range),
     getExpensesReport(range),
   ]);
@@ -46,6 +46,11 @@ export default async function DailyReportPrintPage({
   const expTotal = expenses.totals.grandTotal;
   const netDailySale = totals.revenue - expTotal;
   const marginPercent = totals.revenue > 0 ? percentOf(netDailySale, totals.revenue) : 0;
+
+  const totalItemsQty = items.reduce((sum, item) => sum + item.qty, 0);
+  const totalItemsRevenue = round2(items.reduce((sum, item) => sum + item.revenue, 0));
+  const soldItemsCount = items.filter((item) => item.qty > 0).length;
+  const unsoldItemsCount = items.length - soldItemsCount;
 
   // Group raw expenses by type for itemized printing
   const rawExpenses = expenses.expenses;
@@ -327,33 +332,83 @@ export default async function DailyReportPrintPage({
           </section>
         )}
 
-        {/* Section 4: Top Selling Dishes */}
+        {/* Section 4: All Dishes Sold Breakdown */}
         {items.length > 0 && (
           <section className="mt-6">
-            <h2 className="text-xs font-bold tracking-wider text-slate-500 uppercase">
-              {singleDay ? (rawExpenses.length > 0 ? "3" : "2") : (rawExpenses.length > 0 ? "4" : "3")}. Top Dishes Sold ({items.length} items)
-            </h2>
+            <div className="flex items-baseline justify-between border-b border-slate-300 pb-1">
+              <h2 className="text-xs font-bold tracking-wider text-slate-500 uppercase">
+                {singleDay ? (rawExpenses.length > 0 ? "3" : "2") : (rawExpenses.length > 0 ? "4" : "3")}. Complete Itemized Sales Report ({items.length} dishes)
+              </h2>
+              <span className="text-[11px] font-medium text-slate-500">
+                {soldItemsCount} sold · {unsoldItemsCount} unsold
+              </span>
+            </div>
             <table className="mt-2 w-full text-left text-xs">
               <thead>
-                <tr className="border-b border-slate-300 text-slate-500">
-                  <th className="pb-1 font-medium">Dish Name</th>
-                  <th className="pb-1 text-center font-medium">Qty Sold</th>
-                  <th className="pb-1 text-right font-medium">Total Sales</th>
+                <tr className="border-b-2 border-slate-300 text-slate-600">
+                  <th className="pb-1.5 w-7 font-semibold text-slate-400">#</th>
+                  <th className="pb-1.5 font-semibold text-slate-700">Dish Name</th>
+                  <th className="pb-1.5 text-center font-semibold text-slate-700">Qty Sold</th>
+                  <th className="pb-1.5 text-right font-semibold text-slate-700">Avg Price</th>
+                  <th className="pb-1.5 text-right font-semibold text-slate-700">Total Sales</th>
+                  <th className="pb-1.5 pl-3 text-right font-semibold text-slate-700">% of Sales</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100">
-                {items.slice(0, 15).map((item) => (
-                  <tr key={item.itemName}>
-                    <td className="py-1 font-medium text-slate-900">{item.itemName}</td>
-                    <td className="py-1 text-center font-bold tabular-nums text-slate-800">
-                      {item.qty}
-                    </td>
-                    <td className="py-1 text-right font-semibold tabular-nums text-slate-900">
-                      {formatMoney(item.revenue)}
-                    </td>
-                  </tr>
-                ))}
+                {items.map((item, idx) => {
+                  const pct = totals.revenue > 0 ? percentOf(item.revenue, totals.revenue) : 0;
+                  const avgPrice = item.qty > 0 ? round2(item.revenue / item.qty) : 0;
+                  const isUnsold = item.qty === 0;
+
+                  return (
+                    <tr
+                      key={item.itemName + (item.itemId ?? idx)}
+                      className={isUnsold ? "text-slate-400" : ""}
+                    >
+                      <td className="py-1 text-slate-400 tabular-nums">{idx + 1}</td>
+                      <td className="py-1 font-medium text-slate-900">
+                        {item.itemName}
+                        {isUnsold && (
+                          <span className="ml-2 rounded bg-slate-100 px-1 py-0.5 text-[9px] font-semibold text-slate-500 uppercase">
+                            No Sales
+                          </span>
+                        )}
+                      </td>
+                      <td className="py-1 text-center font-bold tabular-nums text-slate-800">
+                        {item.qty}
+                      </td>
+                      <td className="py-1 text-right tabular-nums text-slate-600">
+                        {avgPrice > 0 ? formatMoney(avgPrice) : "—"}
+                      </td>
+                      <td className="py-1 text-right font-semibold tabular-nums text-slate-900">
+                        {formatMoney(item.revenue)}
+                      </td>
+                      <td className="py-1 pl-3 text-right tabular-nums text-slate-500">
+                        {pct > 0 ? `${pct}%` : "0%"}
+                      </td>
+                    </tr>
+                  );
+                })}
               </tbody>
+              <tfoot className="border-t-2 border-slate-900 font-bold text-slate-900">
+                <tr>
+                  <td colSpan={2} className="pt-2 text-slate-900 uppercase tracking-tight">
+                    Total All Dishes ({items.length} dishes)
+                  </td>
+                  <td className="pt-2 text-center tabular-nums text-slate-900 font-black">
+                    {totalItemsQty}
+                  </td>
+                  <td className="pt-2 text-right text-slate-400 font-normal">
+                    —
+                  </td>
+                  <td className="pt-2 text-right tabular-nums text-slate-900 font-black">
+                    {formatMoney(totalItemsRevenue)}
+                  </td>
+                  <td className="pt-2 pl-3 text-right tabular-nums text-slate-900">
+                    100%
+                  </td>
+                </tr>
+              </tfoot>
             </table>
           </section>
         )}
